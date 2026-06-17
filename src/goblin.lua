@@ -23,6 +23,7 @@ function Goblin.spawnGoblins()
             harvestTimer = 0,
             lastActionType = nil,
             lastActionTargetType = nil,
+            lastBlueprintType = nil,
             targetResource = nil
         })
     end
@@ -67,8 +68,52 @@ function Goblin.update(dt, player, resources, resourceTypes)
             -- Do nothing
 
         elseif gob.state == "mimic" then
-            -- 4. Mimic state: mimicing harvesting trees/rocks/berries
-            if gob.lastActionType == "harvest" and gob.lastActionTargetType then
+            -- 4. Mimic state: mimicking harvesting or building
+            if gob.lastActionType == "build" and gob.lastBlueprintType and _Building then
+                -- Find nearest incomplete blueprint of that type
+                local nearestBP = nil
+                local minDist = 999999
+                for _, struct in ipairs(_Building.list) do
+                    if not struct.completed and struct.type == gob.lastBlueprintType then
+                        local dSq = (struct.x + struct.w/2 - gob.x)^2 + (struct.y + struct.h/2 - gob.y)^2
+                        if dSq < minDist then
+                            minDist = dSq
+                            nearestBP = struct
+                        end
+                    end
+                end
+
+                if nearestBP then
+                    local cx = nearestBP.x + nearestBP.w / 2
+                    local cy = nearestBP.y + nearestBP.h / 2
+                    local dx = cx - gob.x
+                    local dy = cy - gob.y
+                    local dist = math.sqrt(dx*dx + dy*dy)
+                    if dist > 40 then
+                        gob.x = gob.x + (dx / dist) * gob.speed * dt
+                        gob.y = gob.y + (dy / dist) * gob.speed * dt
+                    else
+                        gob.harvestTimer = gob.harvestTimer + dt
+                        if gob.harvestTimer >= 1.5 then
+                            gob.harvestTimer = 0
+                            nearestBP.hammersLeft = nearestBP.hammersLeft - 1
+                            if nearestBP.hammersLeft <= 0 then
+                                nearestBP.completed = true
+                                nearestBP.hammersLeft = 0
+                            end
+                        end
+                    end
+                else
+                    -- No blueprints left, follow player
+                    local dx = playerCenterX - gob.x
+                    local dy = playerCenterY - gob.y
+                    local dist = math.sqrt(dx*dx + dy*dy)
+                    if dist > 60 then
+                        gob.x = gob.x + (dx / dist) * gob.speed * dt
+                        gob.y = gob.y + (dy / dist) * gob.speed * dt
+                    end
+                end
+            elseif gob.lastActionType == "harvest" and gob.lastActionTargetType then
                 -- Find nearest active resource of that type
                 local nearestRes = nil
                 local minDist = 999999

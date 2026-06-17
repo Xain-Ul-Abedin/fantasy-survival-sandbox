@@ -38,7 +38,8 @@ function Save.game(player, world, goblin, ui)
         },
         resources = {},
         drops = {},
-        goblins = {}
+        goblins = {},
+        buildings = {}
     }
     
     -- Save resources
@@ -78,8 +79,28 @@ function Save.game(player, world, goblin, ui)
             tamed = gob.tamed,
             state = gob.state,
             lastActionType = gob.lastActionType,
-            lastActionTargetType = gob.lastActionTargetType
+            lastActionTargetType = gob.lastActionTargetType,
+            lastBlueprintType = gob.lastBlueprintType
         })
+    end
+
+    -- Save buildings (if building module provided)
+    if building then
+        for _, struct in ipairs(building.list) do
+            table.insert(state.buildings, {
+                id = struct.id,
+                type = struct.type,
+                x = struct.x,
+                y = struct.y,
+                w = struct.w,
+                h = struct.h,
+                completed = struct.completed,
+                hammersLeft = struct.hammersLeft,
+                storage = struct.storage,
+                isCooking = struct.isCooking,
+                cookTimer = struct.cookTimer
+            })
+        end
     end
     
     local content = "return " .. serialize(state)
@@ -94,7 +115,7 @@ function Save.game(player, world, goblin, ui)
 end
 
 -- Load game state
-function Save.load(player, world, goblin, ui)
+function Save.load(player, world, goblin, ui, building)
     local info = love.filesystem.getInfo("savegame.lua")
     if not info then
         print("Report. No save file found.")
@@ -174,10 +195,32 @@ function Save.load(player, world, goblin, ui)
             harvestTimer = 0,
             lastActionType = g.lastActionType,
             lastActionTargetType = g.lastActionTargetType,
+            lastBlueprintType = g.lastBlueprintType,
             targetResource = nil
         })
     end
-    
+
+    -- Restore Buildings
+    if building then
+        building.list = {}
+        for _, s in ipairs(state.buildings or {}) do
+            table.insert(building.list, {
+                id = s.id,
+                type = s.type,
+                x = s.x,
+                y = s.y,
+                w = s.w,
+                h = s.h,
+                completed = s.completed,
+                hammersLeft = s.hammersLeft or 0,
+                storage = s.storage or {},
+                isOpen = false,
+                isCooking = s.isCooking or false,
+                cookTimer = s.cookTimer or 0
+            })
+        end
+    end
+
     print("Report. Game state loaded successfully.")
     return true
 end

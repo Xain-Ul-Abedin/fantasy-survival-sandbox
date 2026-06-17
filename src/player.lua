@@ -16,7 +16,8 @@ Player.inventory = {
     wood = 0,
     stone = 0,
     flint = 0,
-    berries = 0
+    berries = 0,
+    cooked_berries = 0
 }
 
 -- Reinitialize player values
@@ -31,7 +32,8 @@ function Player.reset()
         wood = 0,
         stone = 0,
         flint = 0,
-        berries = 0
+        berries = 0,
+        cooked_berries = 0
     }
 end
 
@@ -97,9 +99,22 @@ function Player.update(dt, difficulty)
         Player.stamina = math.min(Player.maxStamina, Player.stamina + 12 * dt)
     end
 
-    -- Update position
-    Player.x = Player.x + dx * activeSpeed * dt
-    Player.y = Player.y + dy * activeSpeed * dt
+    -- Update position with wall collision check
+    local nx = Player.x + dx * activeSpeed * dt
+    local ny = Player.y + dy * activeSpeed * dt
+
+    -- Wall collision from Building module (passed in via global _Building)
+    if _Building then
+        if not _Building.isBlocked(nx, Player.y, Player.size, Player.size) then
+            Player.x = nx
+        end
+        if not _Building.isBlocked(Player.x, ny, Player.size, Player.size) then
+            Player.y = ny
+        end
+    else
+        Player.x = nx
+        Player.y = ny
+    end
 
     -- Clamp to screen edges
     Player.x = math.max(0, math.min(Player.x, love.graphics.getWidth() - Player.size))
@@ -144,7 +159,12 @@ function Player.harvest(resources, resourceTypes, goblins)
             local distSq = (targetX - res.x)^2 + (targetY - res.y)^2
             local hitRadius = config.size + 15
             if distSq < hitRadius^2 then
-                res.hits = res.hits - 1
+                -- Axe reduces hits needed for trees
+                local hitsDealt = 1
+                if res.type == "tree" and (Player.inventory.wood_axe or 0) > 0 then
+                    hitsDealt = 3
+                end
+                res.hits = res.hits - hitsDealt
                 
                 -- Record player's harvesting action for Goblins to mimic
                 for _, gob in ipairs(goblins) do
@@ -179,15 +199,21 @@ function Player.harvest(resources, resourceTypes, goblins)
     end
 end
 
--- Handle eating berries
+-- Handle eating (raw berries or cooked berries)
 function Player.eat()
-    if Player.inventory.berries > 0 then
+    -- Prefer cooked berries first (more nutritious)
+    if (Player.inventory.cooked_berries or 0) > 0 then
+        Player.inventory.cooked_berries = Player.inventory.cooked_berries - 1
+        Player.hunger = math.min(Player.maxHunger, Player.hunger + 50)
+        Player.health = math.min(Player.maxHealth, Player.health + 25)
+        return true, "cooked"
+    elseif (Player.inventory.berries or 0) > 0 then
         Player.inventory.berries = Player.inventory.berries - 1
         Player.hunger = math.min(Player.maxHunger, Player.hunger + 25)
         Player.health = math.min(Player.maxHealth, Player.health + 10)
-        return true
+        return true, "raw"
     end
-    return false
+    return false, nil
 end
 
 return Player

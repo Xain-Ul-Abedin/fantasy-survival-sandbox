@@ -30,8 +30,9 @@ function UI.drawMenu()
     love.graphics.printf("[3] Hard Mode (Hunger Drain: 2.0/s)", 0, 440, love.graphics.getWidth(), "center")
     
     love.graphics.setColor(0.6, 0.6, 0.6)
-    love.graphics.printf("Controls: WASD/Arrows to Move | LShift to Sprint | Space to Harvest | E to Eat", 0, 560, love.graphics.getWidth(), "center")
-    love.graphics.printf("Press [S] to Save | [L] to Load Persistence", 0, 590, love.graphics.getWidth(), "center")
+    love.graphics.printf("Controls: WASD/Arrows to Move | LShift to Sprint | Space to Harvest/Hammer | E to Eat", 0, 555, love.graphics.getWidth(), "center")
+    love.graphics.printf("T = Tame/Cycle Goblin | C = Crafting Menu | B = Place Blueprint | F = Interact", 0, 580, love.graphics.getWidth(), "center")
+    love.graphics.printf("S = Save | L = Load", 0, 605, love.graphics.getWidth(), "center")
 end
 
 -- Render the Game Over screen
@@ -48,7 +49,7 @@ end
 function UI.drawHUD(player)
     -- HUD panel background
     love.graphics.setColor(0, 0, 0, 0.5)
-    love.graphics.rectangle("fill", 10, 10, 280, 140, 6, 6)
+    love.graphics.rectangle("fill", 10, 10, 280, 155, 6, 6)
     
     -- Header
     love.graphics.setColor(0.9, 0.8, 0.4)
@@ -83,16 +84,84 @@ function UI.drawHUD(player)
 
     -- Inventory readout
     love.graphics.setColor(0.8, 0.8, 0.8)
-    local invText = "Inv: "
-    local idx = 1
-    for item, count in pairs(player.inventory) do
+    local invLines = {}
+    local priorityOrder = { "wood", "stone", "flint", "berries", "cooked_berries", "wood_axe",
+                             "campfire_blueprint", "chest_blueprint", "wall_blueprint" }
+    local shown = {}
+    for _, item in ipairs(priorityOrder) do
+        local count = player.inventory[item] or 0
         if count > 0 then
-            invText = invText .. item .. "x" .. count .. " | "
-            idx = idx + 1
+            table.insert(invLines, item:gsub("_", " ") .. " x" .. count)
+            shown[item] = true
         end
     end
-    if invText == "Inv: " then invText = "Inv: (Empty)" end
-    love.graphics.print(invText, 20, 115)
+    for item, count in pairs(player.inventory) do
+        if count > 0 and not shown[item] then
+            table.insert(invLines, item:gsub("_", " ") .. " x" .. count)
+        end
+    end
+    if #invLines == 0 then table.insert(invLines, "(Empty)") end
+    love.graphics.print("Inv: " .. table.concat(invLines, " | "), 20, 115)
+
+    -- Tool indicator
+    if (player.inventory.wood_axe or 0) > 0 then
+        love.graphics.setColor(0.8, 0.6, 0.2)
+        love.graphics.print("[Axe equipped - faster tree harvest]", 20, 135)
+    end
+end
+
+-- Render the Crafting Menu overlay
+function UI.drawCraftingMenu(crafting, player)
+    if not crafting.isOpen then return end
+
+    local W, H = love.graphics.getWidth(), love.graphics.getHeight()
+    local panelW, panelH = 420, 40 + #crafting.recipes * 60 + 20
+    local panelX = (W - panelW) / 2
+    local panelY = (H - panelH) / 2
+
+    -- Background panel
+    love.graphics.setColor(0.08, 0.08, 0.14, 0.95)
+    love.graphics.rectangle("fill", panelX, panelY, panelW, panelH, 8, 8)
+    love.graphics.setColor(0.5, 0.4, 0.7, 0.9)
+    love.graphics.rectangle("line", panelX, panelY, panelW, panelH, 8, 8)
+
+    -- Title
+    love.graphics.setColor(0.9, 0.8, 0.4)
+    love.graphics.printf("[ Crafting Menu ]", panelX, panelY + 10, panelW, "center")
+    love.graphics.setColor(0.5, 0.5, 0.5)
+    love.graphics.printf("Up/Down to navigate | Space to craft | C to close", panelX, panelY + 26, panelW, "center")
+
+    for i, recipe in ipairs(crafting.recipes) do
+        local rowY = panelY + 44 + (i - 1) * 60
+        local isSelected = (i == crafting.selectedIndex)
+
+        -- Row background highlight
+        if isSelected then
+            love.graphics.setColor(0.25, 0.20, 0.40, 0.9)
+            love.graphics.rectangle("fill", panelX + 8, rowY, panelW - 16, 55, 5, 5)
+            love.graphics.setColor(0.6, 0.4, 0.9)
+            love.graphics.rectangle("line", panelX + 8, rowY, panelW - 16, 55, 5, 5)
+        end
+
+        -- Recipe name
+        love.graphics.setColor(isSelected and 1 or 0.8, isSelected and 0.9 or 0.8, isSelected and 0.4 or 0.8)
+        love.graphics.print(recipe.name, panelX + 18, rowY + 6)
+
+        -- Description
+        love.graphics.setColor(0.6, 0.6, 0.7)
+        love.graphics.print(recipe.desc, panelX + 18, rowY + 22)
+
+        -- Cost list
+        local costParts = {}
+        for mat, qty in pairs(recipe.cost) do
+            local have = player.inventory[mat] or 0
+            local color = have >= qty and "(+)" or "(-)"
+            table.insert(costParts, mat:gsub("_"," ") .. " x" .. qty .. " " .. color)
+        end
+        love.graphics.setColor(0.7, 0.8, 0.7)
+        love.graphics.print("Cost: " .. table.concat(costParts, "  "), panelX + 18, rowY + 38)
+    end
 end
 
 return UI
+
