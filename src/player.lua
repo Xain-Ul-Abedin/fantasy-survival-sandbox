@@ -12,6 +12,8 @@ Player.maxHunger = 100
 Player.stamina = 100
 Player.maxStamina = 100
 Player.direction = "down"
+Player.iframeTimer    = 0        -- Seconds of invincibility remaining after a hit
+Player.IFRAME_DURATION = 0.55   -- 0.55s of invincibility per enemy hit
 Player.inventory = {
     wood = 0,
     stone = 0,
@@ -28,6 +30,7 @@ function Player.reset()
     Player.hunger = 100
     Player.stamina = 100
     Player.direction = "down"
+    Player.iframeTimer = 0
     Player.inventory = {
         wood = 0,
         stone = 0,
@@ -39,6 +42,10 @@ end
 
 -- Update stats and process inputs
 function Player.update(dt, difficulty)
+    -- Tick invincibility frames
+    if Player.iframeTimer > 0 then
+        Player.iframeTimer = Player.iframeTimer - dt
+    end
     -- Determine depletion rate based on difficulty
     local hungerRate = 1.5
     local starvationDamage = 5.0
@@ -214,6 +221,15 @@ function Player.eat()
         return true, "raw"
     end
     return false, nil
+end
+
+-- Take damage from an enemy (respects invincibility frames).
+-- Returns the actual damage dealt (or nil if blocked by iframes).
+function Player.takeDamage(amount)
+    if Player.iframeTimer > 0 then return nil end
+    Player.health = math.max(0, Player.health - amount)
+    Player.iframeTimer = Player.IFRAME_DURATION
+    return amount
 end
 
 return Player

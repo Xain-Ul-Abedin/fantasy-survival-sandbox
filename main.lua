@@ -1,4 +1,4 @@
--- FanIsle: Main Game Coordination
+-- FanIsle: Main Game Coordination (Phase 4: Combat + Day/Night)
 local Player   = require("src.player")
 local World    = require("src.world")
 local Goblin   = require("src.goblin")
@@ -6,9 +6,13 @@ local UI       = require("src.ui")
 local Save     = require("src.save")
 local Crafting = require("src.crafting")
 local Building = require("src.building")
+local Enemy    = require("src.enemy")
+local Combat   = require("src.combat")
+local DayCycle = require("src.daycycle")
 
--- Expose Building globally for player wall collision
+-- Expose globals needed by cross-module references
 _Building = Building
+_World    = World
 
 local gameState           = "menu"
 local messageNotification = ""
@@ -20,10 +24,16 @@ local function showMessage(msg, duration)
 end
 
 function love.load()
+    local W, H = love.graphics.getDimensions()
     World.spawnResources()
     Goblin.spawnGoblins()
     Building.list = {}
-    print("Report. FanIsle loaded. Island world generated successfully.")
+    Enemy.list    = {}
+    -- Spawn a few starter enemies far from spawn point for early game feel
+    Enemy.spawn("skeleton", 100, 550)
+    Enemy.spawn("skeleton", 850, 100)
+    Enemy.spawn("bat",      700, 500)
+    print("Report. FanIsle Phase 4 loaded. Day/Night and Combat systems active.")
 end
 
 function love.keypressed(key)
@@ -56,7 +66,12 @@ function love.keypressed(key)
             World.spawnResources()
             Goblin.spawnGoblins()
             Building.list = {}
+            Enemy.list    = {}
             Crafting.isOpen = false
+            DayCycle.elapsed = 0
+            DayCycle.day     = 1
+            DayCycle.nightWaveSpawned = false
+            Combat.damageFeed = {}
             gameState = "play"
         end
         return
@@ -66,6 +81,7 @@ function love.keypressed(key)
     --  PLAY STATE
     -- ──────────────────────────────────────────────
     if gameState == "play" then
+
         -- ── Crafting Menu navigation (takes priority when open) ──
         if Crafting.isOpen then
             if key == "up" then
@@ -76,23 +92,23 @@ function love.keypressed(key)
                 local recipe, result = Crafting.craft(Player)
                 if result == "success" then
                     showMessage("Crafted: " .. recipe.name .. "!", 2.5)
-                elseif result:find("insufficient") then
+                elseif result and result:find("insufficient") then
                     local mat = result:gsub("insufficient_", "")
-                    showMessage("Not enough " .. mat .. "!", 2.0)
+                    showMessage("Not enough " .. mat:gsub("_"," ") .. "!", 2.0)
                 end
             elseif key == "c" then
                 Crafting.toggle()
             end
-            return -- All other keys consumed while crafting is open
+            return
         end
 
         -- ── Toggle crafting menu ──
         if key == "c" then
             Crafting.toggle()
 
-        -- ── Harvest or Hammer (Space) ──
+        -- ── Attack / Harvest / Hammer (Space) ──
         elseif key == "space" then
-            -- Try to hammer a nearby blueprint first
+            -- Priority 1: Hammer a nearby incomplete blueprint
             local hammered = Building.hammer(Player, Goblin.list)
             if hammered then
                 if hammered.completed then
@@ -101,8 +117,13 @@ function love.keypressed(key)
                     showMessage("Hammering... " .. hammered.hammersLeft .. " hits left.", 1.5)
                 end
             else
-                -- Fall through to resource harvesting
+                -- Priority 2: Melee swing at nearby enemies
+                local W, D = Combat.swing(Player, Enemy)
+                -- Priority 3: Harvest resource
                 Player.harvest(World.resources, World.resourceTypes, Goblin.list)
+                if W then
+                    showMessage("Attacked with " .. W:gsub("_"," ") .. "! (" .. D .. " dmg)", 1.5)
+                end
             end
 
         -- ── Eat (E) ──
@@ -131,12 +152,11 @@ function love.keypressed(key)
 
         -- ── Place Blueprint (B) ──
         elseif key == "b" then
-            -- Determine which blueprint the player has
             local bpTypes = { "wall", "campfire", "chest" }
             local placed = false
             for _, bpType in ipairs(bpTypes) do
-                local key_inv = bpType .. "_blueprint"
-                if (Player.inventory[key_inv] or 0) > 0 then
+                local keyInv = bpType .. "_blueprint"
+                if (Player.inventory[keyInv] or 0) > 0 then
                     local ok, result = Building.placeBlueprint(Player, bpType)
                     if ok then
                         showMessage("Placed " .. bpType .. " blueprint. Hammer to build!", 2.5)
@@ -170,12 +190,12 @@ function love.keypressed(key)
 
         -- ── Save (S) ──
         elseif key == "s" then
-            local ok = Save.game(Player, World, Goblin, UI, Building)
+            local ok = Save.game(Player, World, Goblin, UI, Building, Enemy, DayCycle)
             showMessage(ok and "Game saved!" or "Save failed!", 2.0)
 
         -- ── Load (L) ──
         elseif key == "l" then
-            local ok = Save.load(Player, World, Goblin, UI, Building)
+            local ok = Save.load(Player, World, Goblin, UI, Building, Enemy, DayCycle)
             showMessage(ok and "Game loaded!" or "No save file found!", 2.0)
         end
     end
@@ -183,6 +203,8 @@ end
 
 function love.update(dt)
     if gameState ~= "play" then return end
+
+    local W, H = love.graphics.getDimensions()
 
     -- Update player stats and movement
     Player.update(dt, UI.difficulty)
@@ -193,8 +215,20 @@ function love.update(dt)
     -- Update goblin AI
     Goblin.update(dt, Player, World.resources, World.resourceTypes)
 
-    -- Update building campfire timers
+    -- Update building timers (campfire cooking)
     Building.update(dt, Player)
+
+    -- Update enemy AI (pass Combat damageFeed)
+    Enemy.update(dt, Player, World, Combat.damageFeed)
+
+    -- Update combat floating numbers timer
+    Combat.update(dt)
+
+    -- Update day/night cycle - may spawn enemy wave
+    local event, waveSize = DayCycle.update(dt, Enemy, W, H)
+    if event == "night_wave" then
+        showMessage("Night falls! " .. waveSize .. " enemies approach!", 4.0)
+    end
 
     -- Drain message timer
     if messageTimer > 0 then
@@ -208,6 +242,8 @@ function love.update(dt)
 end
 
 function love.draw()
+    local W, H = love.graphics.getDimensions()
+
     if gameState == "menu" then
         UI.drawMenu()
         return
@@ -218,26 +254,34 @@ function love.draw()
         return
     end
 
-    -- Gameplay canvas
+    -- ── World layer (drawn first) ──
     love.graphics.clear(0.22, 0.35, 0.22)
-
-    -- World layer
     World.draw()
     Building.draw()
     Goblin.draw()
+    Enemy.draw()
     Player.draw()
 
-    -- HUD overlay
-    UI.drawHUD(Player)
+    -- ── Player iframe hit flash (on top of player sprite) ──
+    UI.drawPlayerFlash(Player)
 
-    -- Crafting menu overlay (drawn on top of everything)
+    -- ── Day/Night ambient vignette overlay ──
+    DayCycle.drawOverlay(W, H)
+
+    -- ── Floating damage numbers ──
+    Combat.draw()
+
+    -- ── HUD elements ──
+    UI.drawHUD(Player)
+    UI.drawDayClock(DayCycle)
+
+    -- ── Crafting overlay (topmost) ──
     UI.drawCraftingMenu(Crafting, Player)
 
-    -- Floating notification banner
+    -- ── Notification banner ──
     if messageTimer > 0 then
-        local W = love.graphics.getWidth()
         love.graphics.setColor(0, 0, 0, 0.65)
-        love.graphics.rectangle("fill", W / 2 - 200, 18, 400, 30, 5, 5)
+        love.graphics.rectangle("fill", W / 2 - 220, 18, 440, 30, 5, 5)
         love.graphics.setColor(0.9, 0.8, 0.4)
         love.graphics.printf(messageNotification, 0, 26, W, "center")
     end

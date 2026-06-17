@@ -163,5 +163,55 @@ function UI.drawCraftingMenu(crafting, player)
     end
 end
 
+-- Draw the day/night clock widget (top-right corner)
+function UI.drawDayClock(dayCycle)
+    local W       = love.graphics.getWidth()
+    local phase   = dayCycle.phase
+    local clock   = dayCycle.getClockString()
+    local day     = dayCycle.day
+    local frac    = dayCycle.fraction or 0
+
+    -- Phase colors
+    local phaseColors = {
+        dawn  = { 0.95, 0.65, 0.30 },
+        day   = { 0.98, 0.92, 0.50 },
+        dusk  = { 0.80, 0.35, 0.15 },
+        night = { 0.35, 0.40, 0.80 }
+    }
+    local col = phaseColors[phase] or { 1, 1, 1 }
+
+    -- Background panel (top-right)
+    local panelW, panelH = 160, 50
+    local px = W - panelW - 10
+    local py = 10
+
+    love.graphics.setColor(0, 0, 0, 0.55)
+    love.graphics.rectangle("fill", px, py, panelW, panelH, 6, 6)
+
+    -- Phase label
+    love.graphics.setColor(col[1], col[2], col[3])
+    love.graphics.printf(string.upper(phase) .. "  Day " .. day, px, py + 6, panelW, "center")
+
+    -- Clock
+    love.graphics.setColor(1, 1, 1, 0.85)
+    love.graphics.printf(clock, px, py + 24, panelW, "center")
+
+    -- Thin cycle progress bar below
+    love.graphics.setColor(0.15, 0.15, 0.15, 0.8)
+    love.graphics.rectangle("fill", px + 6, py + panelH - 8, panelW - 12, 5, 2, 2)
+    love.graphics.setColor(col[1], col[2], col[3], 0.9)
+    love.graphics.rectangle("fill", px + 6, py + panelH - 8, (panelW - 12) * frac, 5, 2, 2)
+end
+
+-- Draw a red hit-flash overlay on the player when taking damage (iframes active)
+function UI.drawPlayerFlash(player)
+    if player.iframeTimer and player.iframeTimer > 0 then
+        local alpha = (player.iframeTimer / player.IFRAME_DURATION) * 0.45
+        love.graphics.setColor(0.95, 0.1, 0.1, alpha)
+        love.graphics.rectangle("fill", player.x - 2, player.y - 2, player.size + 4, player.size + 4, 4, 4)
+        love.graphics.setColor(1, 1, 1, 1)
+    end
+end
+
 return UI
 

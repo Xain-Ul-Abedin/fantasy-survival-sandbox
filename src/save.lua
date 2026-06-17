@@ -25,7 +25,7 @@ local function serialize(val)
 end
 
 -- Save game state
-function Save.game(player, world, goblin, ui)
+function Save.game(player, world, goblin, ui, building, enemy, dayCycle)
     local state = {
         difficulty = ui.difficulty,
         player = {
@@ -39,7 +39,12 @@ function Save.game(player, world, goblin, ui)
         resources = {},
         drops = {},
         goblins = {},
-        buildings = {}
+        buildings = {},
+        enemies = {},
+        dayCycle = {
+            elapsed = dayCycle and dayCycle.elapsed or 0,
+            day     = dayCycle and dayCycle.day     or 1
+        }
     }
     
     -- Save resources
@@ -102,7 +107,12 @@ function Save.game(player, world, goblin, ui)
             })
         end
     end
-    
+
+    -- Save enemies
+    if enemy then
+        state.enemies = enemy.serialize()
+    end
+
     local content = "return " .. serialize(state)
     local success, err = love.filesystem.write("savegame.lua", content)
     if success then
@@ -115,7 +125,7 @@ function Save.game(player, world, goblin, ui)
 end
 
 -- Load game state
-function Save.load(player, world, goblin, ui, building)
+function Save.load(player, world, goblin, ui, building, enemy, dayCycle)
     local info = love.filesystem.getInfo("savegame.lua")
     if not info then
         print("Report. No save file found.")
@@ -219,6 +229,18 @@ function Save.load(player, world, goblin, ui, building)
                 cookTimer = s.cookTimer or 0
             })
         end
+    end
+
+    -- Restore Enemies
+    if enemy and state.enemies then
+        enemy.deserialize(state.enemies)
+    end
+
+    -- Restore Day Cycle
+    if dayCycle and state.dayCycle then
+        dayCycle.elapsed = state.dayCycle.elapsed or 0
+        dayCycle.day     = state.dayCycle.day     or 1
+        dayCycle.nightWaveSpawned = false
     end
 
     print("Report. Game state loaded successfully.")
