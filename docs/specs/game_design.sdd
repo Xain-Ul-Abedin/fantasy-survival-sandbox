@@ -1,0 +1,68 @@
+# Software Design Document: Fantasy Survival Sandbox
+
+## 1. Game Overview
+A 2D pixel-art top-down survival sandbox game inspired by *The Survivalists*. The player explores a fantasy island, harvests resources, fights off hostile elements, recruits goblin helpers to automate tasks, and manages their survival parameters (health, hunger, stamina).
+
+---
+
+## 2. Sprite & Graphics Specifications
+* **Resolution:** All game sprites, tilemaps, and character sheets will be designed in **32x32** pixels.
+* **Camera System:** Scaled dynamically to preserve pixel grid alignment.
+* **Aesthetics:** Vibrant fantasy palettes, distinct shadows, and clear visual indicators for directions (Up, Down, Left, Right).
+
+---
+
+## 3. Survival Difficulty Parameters
+Survival rates are governed by game difficulty modes. The primary survival drainage parameter is Hunger, which triggers Health depletion when empty.
+
+| Difficulty | Hunger Drain Rate (units/second) | Starvation Damage Rate (HP/second) | Notes |
+| :--- | :--- | :--- | :--- |
+| **Easy** | **1.0** (Default) | 3.0 | Generous time to explore and collect food. |
+| **Normal** | **1.5** | 5.0 | Balanced survival challenge. |
+| **Hard** | **2.0** | 8.0 | Punishing hunger; constant food sourcing required. |
+
+### Hunger Mechanics
+* Max Hunger: 100 units.
+* Consumption: Eating food items (e.g., Berries, Cooked Meat) restores Hunger.
+* Starvation: When Hunger reaches 0, Health starts depleting at the specified Starvation Damage Rate.
+
+---
+
+## 4. Player & Entity Actions
+
+### 4.1 Movement
+* Vector-based free movement mapped to WASD / Arrow keys.
+* Independent of frame rate (uses delta time `dt`).
+* Sprinting (holding Left Shift) increases speed by 1.6x but drains Stamina.
+* Stamina regenerates when not sprinting.
+
+### 4.2 Harvesting
+* Action key (Spacebar or Mouse click) hits nearby resources when facing them.
+* Resources have hit thresholds before yielding items.
+* Tools (Axe, Pickaxe) reduce the number of hits required.
+
+### 4.3 Combat
+* Attack actions hit enemies within a specific collision radius.
+* Defeating hostile creatures drops cooking ingredients or crafting components.
+
+### 4.4 Eating
+* Open inventory and select food items to replenish hunger and health.
+
+---
+
+## 5. Resources & Drop Rates
+| Resource Type | Map Representation | Hits to Harvest (Default) | Drops |
+| :--- | :--- | :--- | :--- |
+| **Tree** | Green circle | 3 | Wood (1-3) |
+| **Rock** | Gray circle | 3 | Stone (1-3), Flint (0-1) |
+| **Berry Shrub**| Red circle | 1 | Berries (2-4) |
+
+---
+
+## 6. Goblin Helpers Mechanics
+* **Recruitment:** Goblins can be tamed by giving them items (e.g., Berry treats).
+* **Automation:** Once recruited, goblins can mimic player actions (e.g., harvesting trees/rocks, building structures, or transporting items).
+* **Instruction Vectors:** Players command goblins using a prompt/action ring:
+  * *Follow:* Goblin tracks the player.
+  * *Mimic:* Goblin repeats the last actions done by the player.
+  * *Standby:* Goblin remains in place.
