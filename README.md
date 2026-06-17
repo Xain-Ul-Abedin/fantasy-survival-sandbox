@@ -1,4 +1,4 @@
-# 🏰 Fantasy Survival Sandbox (Love2D RPG Prototype)
+# 🏰 FanIsle (Love2D RPG Prototype)
 
 A 2D pixel-art top-down RPG, sandbox, and survival game built using the Love2D framework and Lua. Inspired by *The Survivalists*, this game features resource extraction, tools crafting, survival indicators, and helpers automation (e.g. training little goblin spirits to gather materials).
 

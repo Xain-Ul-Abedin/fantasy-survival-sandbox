@@ -1,7 +1,7 @@
 function love.conf(t)
-    t.identity = "fantasy_survival_sandbox"
+    t.identity = "fanisle"
     t.version = "11.5"
-    t.window.title = "Fantasy Survival Sandbox"
+    t.window.title = "FanIsle"
     t.window.width = 960
     t.window.height = 720
     t.window.resizable = false

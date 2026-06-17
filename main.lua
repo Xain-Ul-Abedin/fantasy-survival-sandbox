@@ -126,7 +126,7 @@ function love.draw()
         -- Title Screen
         love.graphics.clear(0.08, 0.08, 0.12)
         love.graphics.setColor(0.9, 0.8, 0.4)
-        love.graphics.printf("🏰 FANTASY SURVIVAL SANDBOX 🏰", 0, 200, love.graphics.getWidth(), "center")
+        love.graphics.printf("🏰 FANISLE 🏰", 0, 200, love.graphics.getWidth(), "center")
         love.graphics.setColor(0.7, 0.7, 0.7)
         love.graphics.printf("Inspired by The Survivalists", 0, 250, love.graphics.getWidth(), "center")
         love.graphics.setColor(1, 1, 1)
