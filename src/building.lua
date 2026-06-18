@@ -5,17 +5,21 @@ Building.list = {}     -- Active placed structures
 Building.preview = nil -- Ghost preview for placement
 
 local structureColors = {
-    wall     = { color = {0.55, 0.40, 0.25}, borderColor = {0.35, 0.22, 0.10} },
-    campfire = { color = {0.85, 0.40, 0.15}, borderColor = {0.95, 0.70, 0.10} },
-    chest    = { color = {0.60, 0.38, 0.18}, borderColor = {0.40, 0.25, 0.10} },
-    torch    = { color = {0.75, 0.45, 0.10}, borderColor = {0.95, 0.70, 0.10} }
+    wall       = { color = {0.55, 0.40, 0.25}, borderColor = {0.35, 0.22, 0.10} },
+    campfire   = { color = {0.85, 0.40, 0.15}, borderColor = {0.95, 0.70, 0.10} },
+    chest      = { color = {0.60, 0.38, 0.18}, borderColor = {0.40, 0.25, 0.10} },
+    torch      = { color = {0.75, 0.45, 0.10}, borderColor = {0.95, 0.70, 0.10} },
+    stone_wall = { color = {0.50, 0.50, 0.52}, borderColor = {0.30, 0.30, 0.32} },
+    bed        = { color = {0.60, 0.30, 0.60}, borderColor = {0.80, 0.50, 0.80} },
 }
 
 local SIZE = {
-    wall     = { w = 32, h = 32 },
-    campfire = { w = 28, h = 28 },
-    chest    = { w = 30, h = 30 },
-    torch    = { w = 10, h = 28 }
+    wall       = { w = 32, h = 32 },
+    campfire   = { w = 28, h = 28 },
+    chest      = { w = 30, h = 30 },
+    torch      = { w = 10, h = 28 },
+    stone_wall = { w = 32, h = 32 },
+    bed        = { w = 40, h = 26 },
 }
 
 -- Place a blueprint structure into the world in front of the player
@@ -124,6 +128,9 @@ function Building.interact(player)
                 elseif struct.type == "chest" then
                     struct.isOpen = not struct.isOpen
                     return struct.isOpen and "chest_opened" or "chest_closed"
+                elseif struct.type == "bed" then
+                    -- Trigger night skip (main.lua checks DayCycle phase)
+                    return "bed_sleep"
                 end
             end
         end
@@ -149,7 +156,7 @@ end
 -- Check AABB overlap vs completed walls (returns true if blocked)
 function Building.isBlocked(nx, ny, width, height)
     for _, struct in ipairs(Building.list) do
-        if struct.completed and struct.type == "wall" then
+        if struct.completed and (struct.type == "wall" or struct.type == "stone_wall") then
             if nx < struct.x + struct.w and
                nx + width > struct.x and
                ny < struct.y + struct.h and

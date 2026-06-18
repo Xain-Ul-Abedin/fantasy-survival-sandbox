@@ -1,9 +1,10 @@
 -- FanIsle: Enemy Module
--- Archetypes: Skeleton (melee), Bat (fast flyer), Orc Scout (brute)
+-- Archetypes: Skeleton (melee), Bat (fast flyer), Orc Scout (brute), Lich (boss)
 local Enemy = {}
 
-Enemy.list      = {}
-Enemy.idCounter = 0
+Enemy.list        = {}
+Enemy.idCounter   = 0
+Enemy.projectiles = {}  -- Lich homing orbs
 
 local ARCHETYPES = {
     skeleton = {
@@ -41,6 +42,18 @@ local ARCHETYPES = {
         color    = { 0.2, 0.5, 0.15 },
         label    = "Orc Scout",
         loot     = { { item = "orc_tusk", min = 1, max = 1 }, { item = "stone", min = 1, max = 3 } }
+    },
+    lich = {
+        hp       = 300,
+        speed    = 30,
+        damage   = 25,
+        size     = 30,
+        aggroRange = 500,
+        attackRange = 35,
+        attackCooldown = 2.5,
+        color    = { 0.4, 0.1, 0.55 },
+        label    = "Night Lich",
+        loot     = { { item = "bone", min = 5, max = 8 }, { item = "fang", min = 3, max = 5 } }
     }
 }
 
@@ -108,6 +121,32 @@ function Enemy.spawnWave(count, W, H)
     end
 end
 
+-- Check if any Lich is currently alive
+function Enemy.isLichAlive()
+    for _, e in ipairs(Enemy.list) do
+        if e.type == "lich" and e.state ~= "dead" then return true end
+    end
+    return false
+end
+
+-- Spawn a Day-7 Lich boss wave (called from DayCycle)
+function Enemy.spawnBossWave()
+    -- Spawn the Lich in the Forest center zone
+    Enemy.spawn("lich", 1440 + math.random(-80, 80), 1080 + math.random(-80, 80))
+    -- Set up lich-specific fields
+    local lich = Enemy.list[#Enemy.list]
+    lich.summonTimer = 0
+    lich.SUMMON_COOLDOWN = 10
+    lich.shootTimer = 0
+    lich.SHOOT_COOLDOWN = 3
+    -- Escort skeletons
+    for i = 1, 3 do
+        Enemy.spawn("skeleton",
+            lich.x + math.random(-120, 120),
+            lich.y + math.random(-120, 120))
+    end
+end
+
 -- Update all enemies
 function Enemy.update(dt, player, world, damageFeed)
     local px = player.x + player.size / 2
@@ -169,11 +208,10 @@ function Enemy.update(dt, player, world, damageFeed)
                     end
                 end
 
-                -- Attack cooldown
+                -- Melee attack cooldown
                 e.attackTimer = e.attackTimer - dt
                 if dist <= e.attackRange and e.attackTimer <= 0 then
                     e.attackTimer = e.attackCooldown
-                    -- Deal damage to player respecting iframes
                     if player.takeDamage then
                         local dealt = player.takeDamage(e.damage)
                         if dealt and damageFeed then
@@ -187,17 +225,69 @@ function Enemy.update(dt, player, world, damageFeed)
                         end
                     end
                 end
+
+                -- Lich: summon skeletons + shoot homing orbs
+                if e.type == "lich" then
+                    e.summonTimer = (e.summonTimer or 0) + dt
+                    if e.summonTimer >= (e.SUMMON_COOLDOWN or 10) then
+                        e.summonTimer = 0
+                        for i = 1, 2 do
+                            Enemy.spawn("skeleton",
+                                e.x + math.random(-80, 80),
+                                e.y + math.random(-80, 80))
+                        end
+                    end
+                    e.shootTimer = (e.shootTimer or 0) + dt
+                    if e.shootTimer >= (e.SHOOT_COOLDOWN or 3) then
+                        e.shootTimer = 0
+                        table.insert(Enemy.projectiles, {
+                            x = e.x, y = e.y,
+                            vx = 0,  vy = 0,
+                            speed  = 90,
+                            damage = 20,
+                            radius = 7,
+                            life   = 5.0,
+                        })
+                    end
+                end
             end
 
-            -- Clamp inside generous screen bounds
-            e.x = math.max(-50, math.min(e.x, love.graphics.getWidth()  + 50))
-            e.y = math.max(-50, math.min(e.y, love.graphics.getHeight() + 50))
+            -- Clamp to world bounds
+            e.x = math.max(0, math.min(e.x, 2880))
+            e.y = math.max(0, math.min(e.y, 2160))
         end
     end
 
-    -- Remove dead enemies (in reverse to preserve indices)
+    -- Remove dead enemies
     for i = #toRemove, 1, -1 do
         table.remove(Enemy.list, toRemove[i])
+    end
+
+    -- Update homing projectiles
+    local px2 = player.x + player.size / 2
+    local py2 = player.y + player.size / 2
+    local projDead = {}
+    for i, proj in ipairs(Enemy.projectiles) do
+        local hdx = px2 - proj.x
+        local hdy = py2 - proj.y
+        local hd  = math.sqrt(hdx * hdx + hdy * hdy)
+        if hd > 1 then
+            proj.vx = (hdx / hd) * proj.speed
+            proj.vy = (hdy / hd) * proj.speed
+        end
+        proj.x    = proj.x + proj.vx * dt
+        proj.y    = proj.y + proj.vy * dt
+        proj.life = proj.life - dt
+        local pdist = math.sqrt((px2 - proj.x)^2 + (py2 - proj.y)^2)
+        if pdist <= proj.radius + player.size / 2 then
+            if player.takeDamage then player.takeDamage(proj.damage) end
+            table.insert(projDead, i)
+        elseif proj.life <= 0 then
+            table.insert(projDead, i)
+        end
+    end
+    for i = #projDead, 1, -1 do
+        table.remove(Enemy.projectiles, projDead[i])
     end
 end
 
@@ -303,6 +393,23 @@ function Enemy.deserialize(data)
             if num > Enemy.idCounter then Enemy.idCounter = num end
         end
     end
+end
+
+-- Draw homing orb projectiles (camera-space)
+function Enemy.drawProjectiles()
+    for _, proj in ipairs(Enemy.projectiles) do
+        local pulse = math.abs(math.sin(love.timer.getTime() * 8)) * 3
+        -- Outer glow
+        love.graphics.setColor(0.55, 0.10, 0.80, 0.45)
+        love.graphics.circle("fill", proj.x, proj.y, proj.radius + 5 + pulse)
+        -- Core orb
+        love.graphics.setColor(0.80, 0.30, 1.00, 0.90)
+        love.graphics.circle("fill", proj.x, proj.y, proj.radius)
+        -- Bright centre
+        love.graphics.setColor(1, 0.80, 1, 1)
+        love.graphics.circle("fill", proj.x, proj.y, proj.radius * 0.4)
+    end
+    love.graphics.setColor(1, 1, 1, 1)
 end
 
 return Enemy

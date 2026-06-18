@@ -39,6 +39,27 @@ Crafting.recipes = {
         cost = { wood = 2, flint = 1 },
         type = "blueprint",
         desc = "Emits warm light during night"
+    },
+    {
+        id = "spear",
+        name = "Wooden Spear",
+        cost = { wood = 3, flint = 1 },
+        type = "tool",
+        desc = "25 dmg, longer reach than axe"
+    },
+    {
+        id = "stone_wall",
+        name = "Stone Wall",
+        cost = { stone = 4 },
+        type = "blueprint",
+        desc = "Durable stone barrier"
+    },
+    {
+        id = "bed",
+        name = "Bed",
+        cost = { wood = 4, berries = 2 },
+        type = "blueprint",
+        desc = "Sleep to skip the night"
     }
 }
 

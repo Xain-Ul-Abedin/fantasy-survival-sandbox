@@ -13,15 +13,24 @@ Combat.SWING_COOLDOWN = 0.45   -- Seconds between player swings
 local WEAPON_DAMAGE = {
     fist     = 5,
     wood_axe = 15,
-    -- future weapons can be added here
+    spear    = 25,
 }
 
--- Determine the player's active weapon and its damage
+-- Weapon reach lookup (hit box radius from player centre)
+local WEAPON_REACH = {
+    fist     = 40,
+    wood_axe = 48,
+    spear    = 72,
+}
+
+-- Determine the player's active weapon, its damage, and reach
 local function getWeaponDamage(player)
-    if (player.inventory.wood_axe or 0) > 0 then
-        return "wood_axe", WEAPON_DAMAGE.wood_axe
+    if (player.inventory.spear or 0) > 0 then
+        return "spear", WEAPON_DAMAGE.spear, WEAPON_REACH.spear
+    elseif (player.inventory.wood_axe or 0) > 0 then
+        return "wood_axe", WEAPON_DAMAGE.wood_axe, WEAPON_REACH.wood_axe
     end
-    return "fist", WEAPON_DAMAGE.fist
+    return "fist", WEAPON_DAMAGE.fist, WEAPON_REACH.fist
 end
 
 -- Called every frame to update floating text timers
@@ -43,13 +52,12 @@ function Combat.swing(player, enemies)
     if Combat.swingCooldown > 0 then return nil end
     Combat.swingCooldown = Combat.SWING_COOLDOWN
 
-    local weaponName, damage = getWeaponDamage(player)
-    local reach = 48
+    local weaponName, damage, reach = getWeaponDamage(player)
     local px = player.x + player.size / 2
     local py = player.y + player.size / 2
     local hitX, hitY = px, py
 
-    if player.direction == "left"  then hitX = px - reach
+    if     player.direction == "left"  then hitX = px - reach
     elseif player.direction == "right" then hitX = px + reach
     elseif player.direction == "up"    then hitY = py - reach
     elseif player.direction == "down"  then hitY = py + reach

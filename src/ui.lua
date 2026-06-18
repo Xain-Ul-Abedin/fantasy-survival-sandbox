@@ -305,4 +305,43 @@ function UI.drawMinimap(player, enemies, building, biome, camera)
     love.graphics.print("MAP", px + 4, py + 2)
 end
 
+-- Draw NPC dialogue box at bottom of screen
+function UI.drawDialogue(npc, line)
+    if not npc or not line then return end
+    local W, H  = love.graphics.getWidth(), love.graphics.getHeight()
+    local bx    = 40
+    local by    = H - 115
+    local bw    = W - 80
+    local bh    = 100
+
+    -- Background panel
+    love.graphics.setColor(0.08, 0.06, 0.12, 0.88)
+    love.graphics.rectangle("fill", bx, by, bw, bh, 8, 8)
+    love.graphics.setColor(0.70, 0.55, 0.80, 0.75)
+    love.graphics.rectangle("line", bx, by, bw, bh, 8, 8)
+
+    -- NPC name header
+    love.graphics.setColor(0.95, 0.80, 0.55)
+    love.graphics.print(npc.name .. ":", bx + 12, by + 10)
+
+    -- Dialogue text (wrapped)
+    love.graphics.setColor(0.92, 0.92, 0.88)
+    love.graphics.printf(line, bx + 12, by + 30, bw - 24, "left")
+
+    -- Hint
+    love.graphics.setColor(0.55, 0.55, 0.60)
+    love.graphics.print("[T] Next  [G] Trade (5 Wood → 2 Cooked Berries)  [ESC] Close", bx + 12, by + bh - 18)
+end
+
+-- Draw Lich warning banner when boss is alive
+function UI.drawLichWarning(isLichAlive, dayCycle)
+    if not isLichAlive then return end
+    local W = love.graphics.getWidth()
+    local pulse = math.abs(math.sin(love.timer.getTime() * 3))
+    love.graphics.setColor(0.55, 0.05, 0.55, 0.35 + pulse * 0.30)
+    love.graphics.rectangle("fill", 0, 48, W, 28)
+    love.graphics.setColor(1, 0.50, 1, 0.85 + pulse * 0.15)
+    love.graphics.printf("⚠  THE NIGHT LICH WALKS  ⚠", 0, 54, W, "center")
+end
+
 return UI
