@@ -24,6 +24,8 @@ local gameState           = "menu"
 local messageNotification = ""
 local messageTimer        = 0
 local bossWaveTriggered   = false
+local showDebugInfo       = false
+
 
 local function showMessage(msg, duration)
     messageNotification = msg
@@ -72,8 +74,15 @@ function love.load()
 end
 
 function love.keypressed(key)
+    -- F3 toggles diagnostic debug overlay
+    if key == "f3" then
+        showDebugInfo = not showDebugInfo
+        return
+    end
+
     -- ESC closes NPC dialogue globally
     if key == "escape" then NPC.closeDialogue(); return end
+
 
     -- NPC Trade (G) — available in play state
     if key == "g" and gameState == "play" then
@@ -321,4 +330,10 @@ function love.draw()
     love.graphics.printf(string.upper(currentBiome) .. " ZONE", 0, H - 27, W, "center")
     love.graphics.setColor(0.35, 0.35, 0.40, 0.7)
     love.graphics.print("FanIsle " .. VERSION, 4, H - 18)
+
+    -- Debug Diagnostic Overlay
+    if showDebugInfo and gameState == "play" then
+        UI.drawDebugInfo(Player, Goblin.list, World.resources, Building.list, Enemy.list, Enemy.projectiles, currentBiome)
+    end
 end
+

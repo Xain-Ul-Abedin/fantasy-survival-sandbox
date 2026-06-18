@@ -403,4 +403,38 @@ function UI.drawVictory(player, dayCycle)
     love.graphics.printf("FanIsle  —  built with Love2D  —  by Xain", 0, H - 28, W, "center")
 end
 
+-- Render Diagnostic Debug Overlay
+function UI.drawDebugInfo(player, goblins, resources, buildings, enemies, projectiles, biomeName)
+    local W, H = love.graphics.getDimensions()
+    local boxW, boxH = 260, 205
+    local x = W - boxW - 10
+    local y = 10
+
+    love.graphics.setColor(0, 0, 0, 0.75)
+    love.graphics.rectangle("fill", x, y, boxW, boxH, 6, 6)
+
+    love.graphics.setColor(0.2, 0.8, 1.0)
+    love.graphics.print("DIAGNOSTIC PANEL", x + 15, y + 15)
+
+    love.graphics.setColor(0.6, 0.6, 0.6)
+    love.graphics.line(x + 15, y + 32, x + boxW - 15, y + 32)
+
+    love.graphics.setColor(0.9, 0.9, 0.9)
+    love.graphics.print("FPS: " .. love.timer.getFPS(), x + 15, y + 42)
+    love.graphics.print("RAM: " .. string.format("%.2f MB", collectgarbage("count") / 1024), x + 15, y + 57)
+
+    local totalEnt = 1 + #goblins + #resources + #buildings + #enemies + #projectiles
+    love.graphics.print("Entities: " .. totalEnt, x + 15, y + 77)
+    love.graphics.setColor(0.7, 0.7, 0.7)
+    love.graphics.print("• Goblins: " .. #goblins, x + 25, y + 92)
+    love.graphics.print("• Enemies: " .. #enemies, x + 25, y + 107)
+    love.graphics.print("• Orbs: " .. #projectiles, x + 25, y + 122)
+    love.graphics.print("• Map: " .. (#resources + #buildings), x + 25, y + 137)
+
+    love.graphics.setColor(0.9, 0.9, 0.9)
+    love.graphics.print("Pos: " .. math.floor(player.x) .. ", " .. math.floor(player.y), x + 15, y + 157)
+    love.graphics.print("Biome: " .. string.upper(biomeName), x + 15, y + 175)
+end
+
 return UI
+
