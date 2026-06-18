@@ -213,5 +213,96 @@ function UI.drawPlayerFlash(player)
     end
 end
 
-return UI
+-- Draw minimap radar (bottom-right corner)
+function UI.drawMinimap(player, enemies, building, biome, camera)
+    if not biome then return end
 
+    local W, H       = love.graphics.getWidth(), love.graphics.getHeight()
+    local mapW, mapH = 135, 100
+    local px         = W - mapW - 10
+    local py         = H - mapH - 10
+    local WORLD_W    = camera and camera.WORLD_W or 2880
+    local WORLD_H    = camera and camera.WORLD_H or 2160
+
+    -- Panel background
+    love.graphics.setColor(0, 0, 0, 0.65)
+    love.graphics.rectangle("fill", px, py, mapW, mapH, 4, 4)
+    love.graphics.setColor(0.4, 0.4, 0.5, 0.8)
+    love.graphics.rectangle("line", px, py, mapW, mapH, 4, 4)
+
+    -- Biome grid tiles (3x3)
+    local tW = mapW / 3
+    local tH = mapH / 3
+    local grid = biome.getGrid()
+    local mc   = biome.MINIMAP_COLOR
+
+    for row = 1, 3 do
+        for col = 1, 3 do
+            local bt  = grid[row][col]
+            local col3 = mc[bt] or {0.5, 0.5, 0.5}
+            love.graphics.setColor(col3[1], col3[2], col3[3], 0.75)
+            love.graphics.rectangle("fill",
+                px + (col - 1) * tW,
+                py + (row - 1) * tH,
+                tW, tH)
+        end
+    end
+
+    -- Zone grid lines
+    love.graphics.setColor(0, 0, 0, 0.30)
+    love.graphics.line(px + tW,     py, px + tW,     py + mapH)
+    love.graphics.line(px + tW * 2, py, px + tW * 2, py + mapH)
+    love.graphics.line(px, py + tH,     px + mapW, py + tH)
+    love.graphics.line(px, py + tH * 2, px + mapW, py + tH * 2)
+
+    -- Helper: world → minimap screen position
+    local function toMap(wx, wy)
+        return px + (wx / WORLD_W) * mapW,
+               py + (wy / WORLD_H) * mapH
+    end
+
+    -- Structure dots (yellow)
+    if building then
+        love.graphics.setColor(0.95, 0.85, 0.25, 0.85)
+        for _, s in ipairs(building.list) do
+            local mx, my = toMap(s.x + s.w / 2, s.y + s.h / 2)
+            love.graphics.circle("fill", mx, my, 2)
+        end
+    end
+
+    -- Enemy dots (red)
+    if enemies then
+        love.graphics.setColor(0.90, 0.20, 0.20, 0.90)
+        for _, e in ipairs(enemies.list or {}) do
+            if e.state ~= "dead" then
+                local mx, my = toMap(e.x, e.y)
+                love.graphics.circle("fill", mx, my, 2)
+            end
+        end
+    end
+
+    -- Player dot (bright white with pulse ring)
+    local mpx, mpy = toMap(player.x + player.size / 2, player.y + player.size / 2)
+    love.graphics.setColor(0.3, 0.5, 1.0, 0.5)
+    love.graphics.circle("line", mpx, mpy, 4)
+    love.graphics.setColor(1, 1, 1, 1)
+    love.graphics.circle("fill", mpx, mpy, 2.5)
+
+    -- Camera view rect
+    if camera then
+        local sw = love.graphics.getWidth()
+        local sh = love.graphics.getHeight()
+        local vrx = px + (camera.x / WORLD_W) * mapW
+        local vry = py + (camera.y / WORLD_H) * mapH
+        local vrw = (sw / WORLD_W) * mapW
+        local vrh = (sh / WORLD_H) * mapH
+        love.graphics.setColor(1, 1, 1, 0.25)
+        love.graphics.rectangle("line", vrx, vry, vrw, vrh)
+    end
+
+    -- Label
+    love.graphics.setColor(0.8, 0.8, 0.8, 0.7)
+    love.graphics.print("MAP", px + 4, py + 2)
+end
+
+return UI

@@ -123,9 +123,11 @@ function Player.update(dt, difficulty)
         Player.y = ny
     end
 
-    -- Clamp to screen edges
-    Player.x = math.max(0, math.min(Player.x, love.graphics.getWidth() - Player.size))
-    Player.y = math.max(0, math.min(Player.y, love.graphics.getHeight() - Player.size))
+    -- Clamp to full world bounds (2880 x 2160)
+    local WORLD_W = _Camera and _Camera.WORLD_W or 2880
+    local WORLD_H = _Camera and _Camera.WORLD_H or 2160
+    Player.x = math.max(0, math.min(Player.x, WORLD_W - Player.size))
+    Player.y = math.max(0, math.min(Player.y, WORLD_H - Player.size))
 end
 
 -- Draw the player box and directional pointer
@@ -183,21 +185,22 @@ function Player.harvest(resources, resourceTypes, goblins)
 
                 if res.hits <= 0 then
                     res.destroyed = true
-                    -- Spawn drops
-                    local drops = {}
-                    local randQty = math.random(1, 3)
-                    if res.type == "tree" then
-                        res.dropType = "wood"
-                        res.dropCount = randQty
-                    elseif res.type == "stone" then
-                        res.dropType = "stone"
-                        res.dropCount = randQty
-                        if math.random() > 0.6 then
-                            res.dropFlint = true
+                    -- Delegate drop resolution to World module
+                    if _World and _World.onResourceDestroyed then
+                        _World.onResourceDestroyed(res)
+                    else
+                        -- Fallback inline
+                        local randQty = math.random(1, 3)
+                        if res.type == "tree" then
+                            res.dropType = "wood"; res.dropCount = randQty
+                        elseif res.type == "stone" then
+                            res.dropType = "stone"; res.dropCount = randQty
+                            if math.random() > 0.6 then res.dropFlint = true end
+                        elseif res.type == "berry" then
+                            res.dropType = "berries"; res.dropCount = math.random(2, 4)
+                        elseif res.type == "flint_cluster" then
+                            res.dropType = "flint"; res.dropCount = math.random(2, 4)
                         end
-                    elseif res.type == "berry" then
-                        res.dropType = "berries"
-                        res.dropCount = math.random(2, 4)
                     end
                 end
                 break -- Hit only one resource at a time

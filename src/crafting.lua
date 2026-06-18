@@ -32,6 +32,13 @@ Crafting.recipes = {
         cost = { wood = 4 },
         type = "blueprint",
         desc = "Blocks path navigation"
+    },
+    {
+        id = "torch",
+        name = "Torch",
+        cost = { wood = 2, flint = 1 },
+        type = "blueprint",
+        desc = "Emits warm light during night"
     }
 }
 

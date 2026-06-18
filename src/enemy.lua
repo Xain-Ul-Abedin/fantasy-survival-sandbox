@@ -77,19 +77,34 @@ function Enemy.spawn(enemyType, x, y)
     })
 end
 
--- Spawn a wave around the edges of the screen
+-- Spawn a wave of enemies distributed across the world in biome-appropriate zones
 function Enemy.spawnWave(count, W, H)
-    local types = { "skeleton", "bat", "orc" }
+    -- Biome → preferred enemy types
+    local BIOME_ENEMIES = {
+        forest = { "skeleton", "bat" },
+        cave   = { "skeleton", "skeleton", "bat" },
+        desert = { "orc", "orc", "skeleton" },
+    }
+    local BIOME_GRID = {
+        { "forest", "cave",   "forest" },
+        { "desert", "forest", "desert" },
+        { "forest", "cave",   "forest" },
+    }
+    local ZONE_W, ZONE_H = 960, 720
+
     for i = 1, count do
-        local side = math.random(1, 4)
-        local x, y
-        if side == 1 then x = math.random(0, W); y = -30
-        elseif side == 2 then x = W + 30;          y = math.random(0, H)
-        elseif side == 3 then x = math.random(0, W); y = H + 30
-        else                  x = -30;              y = math.random(0, H)
-        end
-        local t = types[math.random(1, #types)]
-        Enemy.spawn(t, x, y)
+        -- Pick a random zone
+        local row = math.random(1, 3)
+        local col = math.random(1, 3)
+        local biomeType = BIOME_GRID[row][col]
+        local pool = BIOME_ENEMIES[biomeType] or { "skeleton" }
+        local t = pool[math.random(1, #pool)]
+        -- Spawn position inside that zone
+        local zx = (col - 1) * ZONE_W
+        local zy = (row - 1) * ZONE_H
+        local sx = zx + math.random(40, ZONE_W - 40)
+        local sy = zy + math.random(40, ZONE_H - 40)
+        Enemy.spawn(t, sx, sy)
     end
 end
 

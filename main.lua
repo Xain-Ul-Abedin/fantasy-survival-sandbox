@@ -1,4 +1,4 @@
--- FanIsle: Main Game Coordination (Phase 4: Combat + Day/Night)
+-- FanIsle: Main Game Coordination (Phase 5 — World Map, Biomes, Camera, Torch, Minimap)
 local Player   = require("src.player")
 local World    = require("src.world")
 local Goblin   = require("src.goblin")
@@ -9,10 +9,13 @@ local Building = require("src.building")
 local Enemy    = require("src.enemy")
 local Combat   = require("src.combat")
 local DayCycle = require("src.daycycle")
+local Camera   = require("src.camera")
+local Biome    = require("src.biome")
 
--- Expose globals needed by cross-module references
+-- Expose globals for cross-module access
 _Building = Building
 _World    = World
+_Camera   = Camera
 
 local gameState           = "menu"
 local messageNotification = ""
@@ -24,42 +27,38 @@ local function showMessage(msg, duration)
 end
 
 function love.load()
-    local W, H = love.graphics.getDimensions()
+    love.window.setTitle("FanIsle")
     World.spawnResources()
     Goblin.spawnGoblins()
     Building.list = {}
     Enemy.list    = {}
-    -- Spawn a few starter enemies far from spawn point for early game feel
-    Enemy.spawn("skeleton", 100, 550)
-    Enemy.spawn("skeleton", 850, 100)
-    Enemy.spawn("bat",      700, 500)
-    print("Report. FanIsle Phase 4 loaded. Day/Night and Combat systems active.")
+
+    -- Distribute starter enemies across biome zones
+    Enemy.spawn("skeleton", 1100, 350)   -- Cave zone
+    Enemy.spawn("skeleton", 1900, 1500)  -- Cave zone (bottom)
+    Enemy.spawn("bat",      500,  900)   -- Desert
+    Enemy.spawn("orc",      2400, 750)   -- Desert right
+
+    -- Snap camera to player start
+    Camera.x = Player.x - love.graphics.getWidth()  / 2
+    Camera.y = Player.y - love.graphics.getHeight() / 2
+    Camera.x = math.max(0, math.min(Camera.x, Camera.WORLD_W - love.graphics.getWidth()))
+    Camera.y = math.max(0, math.min(Camera.y, Camera.WORLD_H - love.graphics.getHeight()))
+
+    print("Report. FanIsle Phase 5 loaded. World: 2880x2160, 9 biome zones.")
 end
 
 function love.keypressed(key)
-    -- ──────────────────────────────────────────────
-    --  MENU STATE
-    -- ──────────────────────────────────────────────
+    -- ── MENU ──
     if gameState == "menu" then
-        if key == "1" then
-            UI.difficulty = "easy"
-            UI.difficultyLabel = "Easy"
-            gameState = "play"
-        elseif key == "2" then
-            UI.difficulty = "normal"
-            UI.difficultyLabel = "Normal"
-            gameState = "play"
-        elseif key == "3" then
-            UI.difficulty = "hard"
-            UI.difficultyLabel = "Hard"
-            gameState = "play"
+        if key == "1" then UI.difficulty = "easy";   UI.difficultyLabel = "Easy";   gameState = "play"
+        elseif key == "2" then UI.difficulty = "normal"; UI.difficultyLabel = "Normal"; gameState = "play"
+        elseif key == "3" then UI.difficulty = "hard";   UI.difficultyLabel = "Hard";   gameState = "play"
         end
         return
     end
 
-    -- ──────────────────────────────────────────────
-    --  GAME OVER STATE
-    -- ──────────────────────────────────────────────
+    -- ── GAME OVER ──
     if gameState == "gameover" then
         if key == "r" then
             Player.reset()
@@ -72,128 +71,97 @@ function love.keypressed(key)
             DayCycle.day     = 1
             DayCycle.nightWaveSpawned = false
             Combat.damageFeed = {}
+            Camera.x = Player.x - love.graphics.getWidth()  / 2
+            Camera.y = Player.y - love.graphics.getHeight() / 2
             gameState = "play"
         end
         return
     end
 
-    -- ──────────────────────────────────────────────
-    --  PLAY STATE
-    -- ──────────────────────────────────────────────
+    -- ── PLAY ──
     if gameState == "play" then
 
-        -- ── Crafting Menu navigation (takes priority when open) ──
+        -- Crafting menu intercepts all keys when open
         if Crafting.isOpen then
-            if key == "up" then
-                Crafting.navigate("up")
-            elseif key == "down" then
-                Crafting.navigate("down")
+            if key == "up"    then Crafting.navigate("up")
+            elseif key == "down"  then Crafting.navigate("down")
             elseif key == "space" then
                 local recipe, result = Crafting.craft(Player)
                 if result == "success" then
                     showMessage("Crafted: " .. recipe.name .. "!", 2.5)
                 elseif result and result:find("insufficient") then
-                    local mat = result:gsub("insufficient_", "")
-                    showMessage("Not enough " .. mat:gsub("_"," ") .. "!", 2.0)
+                    local mat = result:gsub("insufficient_", ""):gsub("_", " ")
+                    showMessage("Not enough " .. mat .. "!", 2.0)
                 end
-            elseif key == "c" then
-                Crafting.toggle()
+            elseif key == "c" then Crafting.toggle()
             end
             return
         end
 
-        -- ── Toggle crafting menu ──
         if key == "c" then
             Crafting.toggle()
 
-        -- ── Attack / Harvest / Hammer (Space) ──
         elseif key == "space" then
-            -- Priority 1: Hammer a nearby incomplete blueprint
+            -- Priority 1: Hammer nearby blueprint
             local hammered = Building.hammer(Player, Goblin.list)
             if hammered then
-                if hammered.completed then
-                    showMessage("Structure built: " .. hammered.type .. "!", 2.5)
-                else
-                    showMessage("Hammering... " .. hammered.hammersLeft .. " hits left.", 1.5)
-                end
+                showMessage(hammered.completed
+                    and "Structure built: " .. hammered.type .. "!"
+                    or  "Hammering... "   .. hammered.hammersLeft .. " hits left.", 2.0)
             else
-                -- Priority 2: Melee swing at nearby enemies
-                local W, D = Combat.swing(Player, Enemy)
-                -- Priority 3: Harvest resource
+                -- Priority 2: Combat swing
+                local wName, dmg = Combat.swing(Player, Enemy)
+                -- Priority 3: Harvest
                 Player.harvest(World.resources, World.resourceTypes, Goblin.list)
-                if W then
-                    showMessage("Attacked with " .. W:gsub("_"," ") .. "! (" .. D .. " dmg)", 1.5)
+                if wName then
+                    showMessage("Attacked! " .. wName:gsub("_"," ") .. " (" .. dmg .. " dmg)", 1.5)
                 end
             end
 
-        -- ── Eat (E) ──
         elseif key == "e" then
             local ate, kind = Player.eat()
-            if ate and kind == "cooked" then
-                showMessage("Ate Cooked Berries! (+50 Food +25 HP)", 2.5)
-            elseif ate and kind == "raw" then
-                showMessage("Ate a raw berry. (+25 Food +10 HP)", 2.0)
-            else
-                showMessage("Nothing edible in inventory!", 2.0)
+            if ate and kind == "cooked" then showMessage("Ate Cooked Berries! (+50 Food +25 HP)", 2.5)
+            elseif ate then showMessage("Ate a raw berry. (+25 Food +10 HP)", 2.0)
+            else showMessage("Nothing edible!", 2.0)
             end
 
-        -- ── Goblin Interact (T) ──
         elseif key == "t" then
             local result = Goblin.interact(Player)
-            if result == "tamed" then
-                showMessage("Goblin recruited as a helper!", 3.0)
-            elseif result == "need_berry" then
-                showMessage("Need 1 berry to tame the goblin!", 2.5)
-            elseif result == "cycled" then
-                showMessage("Goblin command updated!", 2.0)
-            else
-                showMessage("No goblins nearby!", 1.8)
+            if result == "tamed"      then showMessage("Goblin recruited!", 3.0)
+            elseif result == "need_berry" then showMessage("Need 1 berry to tame!", 2.5)
+            elseif result == "cycled"     then showMessage("Goblin command updated!", 2.0)
+            else showMessage("No goblins nearby!", 1.8)
             end
 
-        -- ── Place Blueprint (B) ──
         elseif key == "b" then
-            local bpTypes = { "wall", "campfire", "chest" }
-            local placed = false
+            local bpTypes = { "torch", "wall", "campfire", "chest" }
+            local placed  = false
             for _, bpType in ipairs(bpTypes) do
-                local keyInv = bpType .. "_blueprint"
-                if (Player.inventory[keyInv] or 0) > 0 then
-                    local ok, result = Building.placeBlueprint(Player, bpType)
-                    if ok then
-                        showMessage("Placed " .. bpType .. " blueprint. Hammer to build!", 2.5)
-                    else
-                        showMessage("Could not place " .. bpType .. ".", 2.0)
-                    end
+                if (Player.inventory[bpType .. "_blueprint"] or 0) > 0 then
+                    local ok = Building.placeBlueprint(Player, bpType)
+                    showMessage(ok
+                        and "Placed " .. bpType .. " blueprint. Hammer to build!"
+                        or  "Could not place " .. bpType .. ".", 2.0)
                     placed = true
                     break
                 end
             end
-            if not placed then
-                showMessage("No blueprints in inventory! Craft one first.", 2.0)
-            end
+            if not placed then showMessage("No blueprints! Craft one first (C).", 2.0) end
 
-        -- ── Interact with structures (F) ──
         elseif key == "f" then
             local result = Building.interact(Player)
-            if result == "campfire_start" then
-                showMessage("Cooking berries! Ready in 2 seconds...", 2.5)
-            elseif result == "campfire_busy" then
-                showMessage("Campfire is already cooking!", 1.8)
-            elseif result == "campfire_no_berries" then
-                showMessage("Need at least 2 berries to cook!", 2.0)
-            elseif result == "chest_opened" then
-                showMessage("Chest opened.", 1.5)
-            elseif result == "chest_closed" then
-                showMessage("Chest closed.", 1.5)
-            else
-                showMessage("Nothing nearby to interact with.", 1.8)
+            if result == "campfire_start"      then showMessage("Cooking berries! 2 seconds...", 2.5)
+            elseif result == "campfire_busy"   then showMessage("Campfire already cooking!", 1.8)
+            elseif result == "campfire_no_berries" then showMessage("Need 2 berries to cook!", 2.0)
+            elseif result == "chest_opened"    then showMessage("Chest opened.", 1.5)
+            elseif result == "chest_closed"    then showMessage("Chest closed.", 1.5)
+            else showMessage("Nothing nearby to interact with.", 1.8)
             end
 
-        -- ── Save (S) ──
         elseif key == "s" then
             local ok = Save.game(Player, World, Goblin, UI, Building, Enemy, DayCycle)
             showMessage(ok and "Game saved!" or "Save failed!", 2.0)
 
-        -- ── Load (L) ──
         elseif key == "l" then
             local ok = Save.load(Player, World, Goblin, UI, Building, Enemy, DayCycle)
             showMessage(ok and "Game loaded!" or "No save file found!", 2.0)
@@ -206,83 +174,72 @@ function love.update(dt)
 
     local W, H = love.graphics.getDimensions()
 
-    -- Update player stats and movement
     Player.update(dt, UI.difficulty)
-
-    -- Update world drops and item pickups
+    Camera.update(dt, Player)
     World.updateDrops(dt, Player)
-
-    -- Update goblin AI
     Goblin.update(dt, Player, World.resources, World.resourceTypes)
-
-    -- Update building timers (campfire cooking)
     Building.update(dt, Player)
-
-    -- Update enemy AI (pass Combat damageFeed)
     Enemy.update(dt, Player, World, Combat.damageFeed)
-
-    -- Update combat floating numbers timer
     Combat.update(dt)
 
-    -- Update day/night cycle - may spawn enemy wave
     local event, waveSize = DayCycle.update(dt, Enemy, W, H)
     if event == "night_wave" then
-        showMessage("Night falls! " .. waveSize .. " enemies approach!", 4.0)
+        showMessage("Night falls! " .. waveSize .. " enemies approach the island!", 4.0)
     end
 
-    -- Drain message timer
-    if messageTimer > 0 then
-        messageTimer = messageTimer - dt
-    end
-
-    -- Death check
-    if Player.health <= 0 then
-        gameState = "gameover"
-    end
+    if messageTimer > 0 then messageTimer = messageTimer - dt end
+    if Player.health <= 0 then gameState = "gameover" end
 end
 
 function love.draw()
     local W, H = love.graphics.getDimensions()
 
-    if gameState == "menu" then
-        UI.drawMenu()
-        return
+    if gameState == "menu" then UI.drawMenu(); return end
+    if gameState == "gameover" then UI.drawGameOver(); return end
+
+    -- ── WORLD LAYER (inside camera transform) ──
+    Camera.attach()
+        Biome.draw()       -- Ground tints (bottom)
+        World.draw()       -- Resources & drops
+        Building.draw()    -- Structures
+        Goblin.draw()      -- Companion goblins
+        Enemy.draw()       -- Hostile enemies
+        Player.draw()      -- Player character
+        UI.drawPlayerFlash(Player)  -- iframe red flash (world space)
+    Camera.detach()
+
+    -- ── OVERLAYS (screen space) ──
+    -- Night vignette + torch glow (screen space approximation)
+    if DayCycle.phase == "night" or DayCycle.phase == "dusk" then
+        -- Torch glow needs camera transform to position torches correctly
+        Camera.attach()
+        local nightAlpha = DayCycle.phase == "night" and 0.68 or 0.22
+        Building.drawTorchGlow(nightAlpha)
+        Camera.detach()
     end
-
-    if gameState == "gameover" then
-        UI.drawGameOver()
-        return
-    end
-
-    -- ── World layer (drawn first) ──
-    love.graphics.clear(0.22, 0.35, 0.22)
-    World.draw()
-    Building.draw()
-    Goblin.draw()
-    Enemy.draw()
-    Player.draw()
-
-    -- ── Player iframe hit flash (on top of player sprite) ──
-    UI.drawPlayerFlash(Player)
-
-    -- ── Day/Night ambient vignette overlay ──
     DayCycle.drawOverlay(W, H)
 
-    -- ── Floating damage numbers ──
+    -- Floating damage numbers (screen-space positions tracked by Combat)
     Combat.draw()
 
-    -- ── HUD elements ──
+    -- HUD elements
     UI.drawHUD(Player)
     UI.drawDayClock(DayCycle)
-
-    -- ── Crafting overlay (topmost) ──
+    UI.drawMinimap(Player, Enemy, Building, Biome, Camera)
     UI.drawCraftingMenu(Crafting, Player)
 
-    -- ── Notification banner ──
+    -- Notification banner
     if messageTimer > 0 then
         love.graphics.setColor(0, 0, 0, 0.65)
-        love.graphics.rectangle("fill", W / 2 - 220, 18, 440, 30, 5, 5)
+        love.graphics.rectangle("fill", W / 2 - 240, 18, 480, 30, 5, 5)
         love.graphics.setColor(0.9, 0.8, 0.4)
         love.graphics.printf(messageNotification, 0, 26, W, "center")
     end
+
+    -- Biome indicator (current zone player is in)
+    local currentBiome = Biome.getAt(Player.x, Player.y)
+    love.graphics.setColor(0, 0, 0, 0.45)
+    love.graphics.rectangle("fill", W / 2 - 55, H - 30, 110, 20, 4, 4)
+    love.graphics.setColor(0.85, 0.85, 0.85)
+    love.graphics.printf(string.upper(currentBiome) .. " ZONE", 0, H - 27, W, "center")
 end

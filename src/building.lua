@@ -7,13 +7,15 @@ Building.preview = nil -- Ghost preview for placement
 local structureColors = {
     wall     = { color = {0.55, 0.40, 0.25}, borderColor = {0.35, 0.22, 0.10} },
     campfire = { color = {0.85, 0.40, 0.15}, borderColor = {0.95, 0.70, 0.10} },
-    chest    = { color = {0.60, 0.38, 0.18}, borderColor = {0.40, 0.25, 0.10} }
+    chest    = { color = {0.60, 0.38, 0.18}, borderColor = {0.40, 0.25, 0.10} },
+    torch    = { color = {0.75, 0.45, 0.10}, borderColor = {0.95, 0.70, 0.10} }
 }
 
 local SIZE = {
     wall     = { w = 32, h = 32 },
     campfire = { w = 28, h = 28 },
-    chest    = { w = 30, h = 30 }
+    chest    = { w = 30, h = 30 },
+    torch    = { w = 10, h = 28 }
 }
 
 -- Place a blueprint structure into the world in front of the player
@@ -219,8 +221,48 @@ function Building.draw()
                 love.graphics.rectangle("fill", struct.x + 3, struct.y + 3, struct.w - 6, 3)
                 love.graphics.rectangle("fill", struct.x + 3, struct.y + struct.h - 6, struct.w - 6, 3)
             end
+
+            -- Torch: pole + animated flame
+            if struct.type == "torch" then
+                local cx = struct.x + struct.w / 2
+                local flicker = math.abs(math.sin(love.timer.getTime() * 6)) * 4
+                -- Pole
+                love.graphics.setColor(0.55, 0.35, 0.10)
+                love.graphics.rectangle("fill", cx - 2, struct.y + 6, 4, struct.h - 6)
+                -- Flame outer
+                love.graphics.setColor(0.95, 0.60, 0.10, 0.9)
+                love.graphics.circle("fill", cx, struct.y + 4 + flicker * 0.3, 6 + flicker * 0.5)
+                -- Flame inner
+                love.graphics.setColor(1, 0.92, 0.55, 0.85)
+                love.graphics.circle("fill", cx, struct.y + 5 + flicker * 0.2, 3)
+                love.graphics.setColor(0.9, 0.75, 0.3, 0.65)
+                love.graphics.print("Torch", struct.x - 8, struct.y - 14)
+            end
         end
     end
+end
+
+-- Draw warm glow circles for all completed torches (call during night overlay)
+-- This punches a soft warm light into the darkness vignette
+function Building.drawTorchGlow(nightAlpha)
+    if not nightAlpha or nightAlpha <= 0 then return end
+    for _, struct in ipairs(Building.list) do
+        if struct.completed and struct.type == "torch" then
+            local cx = struct.x + struct.w / 2
+            local cy = struct.y + struct.h / 2
+            local flicker = math.abs(math.sin(love.timer.getTime() * 5)) * 8
+            local glowR   = 120 + flicker
+            -- Layered warm glow (subtractive from night)
+            local steps = 8
+            for i = steps, 1, -1 do
+                local frac  = i / steps
+                local alpha = nightAlpha * frac * 0.55
+                love.graphics.setColor(0.95, 0.65, 0.15, alpha)
+                love.graphics.circle("fill", cx, cy, glowR * frac)
+            end
+        end
+    end
+    love.graphics.setColor(1, 1, 1, 1)
 end
 
 return Building
