@@ -101,13 +101,17 @@ function World.updateDrops(dt, player)
     -- Player pickup (within 30px)
     local pcx = player.x + player.size / 2
     local pcy = player.y + player.size / 2
-    for _, drop in ipairs(World.drops) do
+    for i = #World.drops, 1, -1 do
+        local drop = World.drops[i]
         if not drop.pickedUp then
             local dSq = (pcx - drop.x)^2 + (pcy - drop.y)^2
             if dSq < 30^2 then
                 drop.pickedUp = true
                 player.inventory[drop.type] = (player.inventory[drop.type] or 0) + drop.count
+                table.remove(World.drops, i)
             end
+        else
+            table.remove(World.drops, i)
         end
     end
 end

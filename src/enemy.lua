@@ -153,8 +153,9 @@ function Enemy.update(dt, player, world, damageFeed)
     local px = player.x + player.size / 2
     local py = player.y + player.size / 2
 
-    local toRemove = {}
-    for i, e in ipairs(Enemy.list) do
+    -- 1. Update enemies in a backward loop to support safe in-place deletion
+    for i = #Enemy.list, 1, -1 do
+        local e = Enemy.list[i]
         if e.state == "dead" then
             e.deathTimer = e.deathTimer + dt
             -- Victory: flag when Lich fully expires
@@ -162,7 +163,7 @@ function Enemy.update(dt, player, world, damageFeed)
                 Enemy.lichDefeated = true
             end
             if e.deathTimer >= 0.6 then
-                table.insert(toRemove, i)
+                table.remove(Enemy.list, i)
             end
         else
             local dx = px - e.x
@@ -236,7 +237,7 @@ function Enemy.update(dt, player, world, damageFeed)
                     e.summonTimer = (e.summonTimer or 0) + dt
                     if e.summonTimer >= (e.SUMMON_COOLDOWN or 10) then
                         e.summonTimer = 0
-                        for i = 1, 2 do
+                        for j = 1, 2 do
                             Enemy.spawn("skeleton",
                                 e.x + math.random(-80, 80),
                                 e.y + math.random(-80, 80))
@@ -263,16 +264,11 @@ function Enemy.update(dt, player, world, damageFeed)
         end
     end
 
-    -- Remove dead enemies
-    for i = #toRemove, 1, -1 do
-        table.remove(Enemy.list, toRemove[i])
-    end
-
-    -- Update homing projectiles
+    -- 2. Update homing projectiles in a backward loop (allocation-free)
     local px2 = player.x + player.size / 2
     local py2 = player.y + player.size / 2
-    local projDead = {}
-    for i, proj in ipairs(Enemy.projectiles) do
+    for i = #Enemy.projectiles, 1, -1 do
+        local proj = Enemy.projectiles[i]
         local hdx = px2 - proj.x
         local hdy = py2 - proj.y
         local hd  = math.sqrt(hdx * hdx + hdy * hdy)
@@ -286,13 +282,10 @@ function Enemy.update(dt, player, world, damageFeed)
         local pdist = math.sqrt((px2 - proj.x)^2 + (py2 - proj.y)^2)
         if pdist <= proj.radius + player.size / 2 then
             if player.takeDamage then player.takeDamage(proj.damage) end
-            table.insert(projDead, i)
+            table.remove(Enemy.projectiles, i)
         elseif proj.life <= 0 then
-            table.insert(projDead, i)
+            table.remove(Enemy.projectiles, i)
         end
-    end
-    for i = #projDead, 1, -1 do
-        table.remove(Enemy.projectiles, projDead[i])
     end
 end
 
