@@ -173,20 +173,40 @@ function Building.draw()
     for _, struct in ipairs(Building.list) do
         local colors = structureColors[struct.type] or { color = {0.5, 0.5, 0.5}, borderColor = {0.3, 0.3, 0.3} }
 
+        -- Resolve sprite quad for this structure type (if available)
+        local quad = _Assets and _Assets.objects and _Assets.quads and _Assets.quads.objects
+                     and _Assets.quads.objects[struct.type] or nil
+
         if not struct.completed then
-            -- Blueprint ghost: translucent outline only
-            love.graphics.setColor(colors.color[1], colors.color[2], colors.color[3], 0.35)
-            love.graphics.rectangle("fill", struct.x, struct.y, struct.w, struct.h, 3, 3)
-            love.graphics.setColor(colors.borderColor[1], colors.borderColor[2], colors.borderColor[3], 0.8)
-            love.graphics.rectangle("line", struct.x, struct.y, struct.w, struct.h, 3, 3)
+            -- Blueprint ghost
+            if quad then
+                -- Sprite-based blueprint: blue ghost tint
+                local _, _, qw, qh = quad:getViewport()
+                love.graphics.setColor(0.5, 0.7, 1.0, 0.45)
+                love.graphics.draw(_Assets.objects, quad, struct.x, struct.y, 0, struct.w / qw, struct.h / qh)
+            else
+                -- Fallback: translucent rectangle outline
+                love.graphics.setColor(colors.color[1], colors.color[2], colors.color[3], 0.35)
+                love.graphics.rectangle("fill", struct.x, struct.y, struct.w, struct.h, 3, 3)
+                love.graphics.setColor(colors.borderColor[1], colors.borderColor[2], colors.borderColor[3], 0.8)
+                love.graphics.rectangle("line", struct.x, struct.y, struct.w, struct.h, 3, 3)
+            end
             love.graphics.setColor(1, 1, 0.4, 0.9)
             love.graphics.print("[Blueprint " .. struct.hammersLeft .. " hits left]", struct.x - 10, struct.y - 16)
         else
             -- Completed structure
-            love.graphics.setColor(colors.color)
-            love.graphics.rectangle("fill", struct.x, struct.y, struct.w, struct.h, 3, 3)
-            love.graphics.setColor(colors.borderColor)
-            love.graphics.rectangle("line", struct.x, struct.y, struct.w, struct.h, 3, 3)
+            if quad then
+                -- Sprite-based completed structure: full color
+                local _, _, qw, qh = quad:getViewport()
+                love.graphics.setColor(1, 1, 1, 1)
+                love.graphics.draw(_Assets.objects, quad, struct.x, struct.y, 0, struct.w / qw, struct.h / qh)
+            else
+                -- Fallback: filled rectangle with border
+                love.graphics.setColor(colors.color)
+                love.graphics.rectangle("fill", struct.x, struct.y, struct.w, struct.h, 3, 3)
+                love.graphics.setColor(colors.borderColor)
+                love.graphics.rectangle("line", struct.x, struct.y, struct.w, struct.h, 3, 3)
+            end
 
             -- Campfire flame accent
             if struct.type == "campfire" then

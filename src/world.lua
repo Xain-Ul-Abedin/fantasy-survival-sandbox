@@ -147,16 +147,31 @@ function World.draw()
         if not res.destroyed then
             local config = World.resourceTypes[res.type]
             if config then
-                love.graphics.setColor(config.color)
-                love.graphics.circle("fill", res.x, res.y, config.size)
+                local quad = _Assets and _Assets.quads and _Assets.quads.objects
+                    and _Assets.quads.objects[res.type]
+                if _Assets and _Assets.objects and quad then
+                    -- Sprite path: draw the object sprite centred on (res.x, res.y)
+                    love.graphics.setColor(1, 1, 1, 1)
+                    local _, _, qw, qh = quad:getViewport()
+                    local targetW = config.size * 2
+                    local targetH = config.size * 2
+                    local sx = targetW / qw
+                    local sy = targetH / qh
+                    love.graphics.draw(_Assets.objects, quad,
+                        res.x - targetW / 2, res.y - targetH / 2, 0, sx, sy)
+                else
+                    -- Fallback: geometric primitives
+                    love.graphics.setColor(config.color)
+                    love.graphics.circle("fill", res.x, res.y, config.size)
 
-                -- Flint cluster gets a jagged accent
-                if res.type == "flint_cluster" then
-                    love.graphics.setColor(0.55, 0.50, 0.65, 0.8)
-                    love.graphics.polygon("fill",
-                        res.x - 8, res.y + 4,
-                        res.x,     res.y - config.size + 2,
-                        res.x + 8, res.y + 4)
+                    -- Flint cluster gets a jagged accent
+                    if res.type == "flint_cluster" then
+                        love.graphics.setColor(0.55, 0.50, 0.65, 0.8)
+                        love.graphics.polygon("fill",
+                            res.x - 8, res.y + 4,
+                            res.x,     res.y - config.size + 2,
+                            res.x + 8, res.y + 4)
+                    end
                 end
 
                 love.graphics.setColor(1, 1, 1, 0.65)
@@ -179,9 +194,22 @@ function World.draw()
     }
     for _, drop in ipairs(World.drops) do
         if not drop.pickedUp then
-            local col = dropColors[drop.type] or {0.9, 0.9, 0.9}
-            love.graphics.setColor(col)
-            love.graphics.circle("fill", drop.x, drop.y, 6)
+            local itemQuad = _Assets and _Assets.quads and _Assets.quads.items
+                and _Assets.quads.items[drop.type]
+            if _Assets and _Assets.items and itemQuad then
+                -- Sprite path: draw the item sprite at ~16x16 centred on drop position
+                love.graphics.setColor(1, 1, 1, 1)
+                local _, _, qw, qh = itemQuad:getViewport()
+                local sx = 16 / qw
+                local sy = 16 / qh
+                love.graphics.draw(_Assets.items, itemQuad,
+                    drop.x - 8, drop.y - 8, 0, sx, sy)
+            else
+                -- Fallback: coloured circle
+                local col = dropColors[drop.type] or {0.9, 0.9, 0.9}
+                love.graphics.setColor(col)
+                love.graphics.circle("fill", drop.x, drop.y, 6)
+            end
             love.graphics.setColor(1, 1, 1, 0.8)
             love.graphics.print(drop.type:gsub("_"," ") .. " x" .. drop.count,
                 drop.x - 16, drop.y - 18)

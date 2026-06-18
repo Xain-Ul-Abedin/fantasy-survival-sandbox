@@ -47,11 +47,72 @@ end
 
 -- Render the HUD during gameplay
 function UI.drawHUD(player)
-    -- HUD panel background
+    -- 1. Gather/layout inventory items to determine dynamic height
+    local priorityOrder = { "wood", "stone", "flint", "berries", "cooked_berries", "wood_axe",
+                             "campfire_blueprint", "chest_blueprint", "wall_blueprint" }
+    local shown = {}
+    local invItems = {}
+    for _, item in ipairs(priorityOrder) do
+        local count = player.inventory[item] or 0
+        if count > 0 then
+            table.insert(invItems, { name = item, count = count })
+            shown[item] = true
+        end
+    end
+    for item, count in pairs(player.inventory) do
+        if count > 0 and not shown[item] then
+            table.insert(invItems, { name = item, count = count })
+        end
+    end
+
+    local invX, invY = 20, 115
+    local maxW = 260
+    local iconSize = 12
+    local hasSprites = _Assets and _Assets.items and _Assets.quads and _Assets.quads.items
+
+    local layout = {}
+    local maxY = invY + 12
+    if #invItems > 0 then
+        local curX = invX + 30
+        local curY = invY
+        for _, entry in ipairs(invItems) do
+            local quad = hasSprites and _Assets.quads.items[entry.name]
+            local label = "x" .. entry.count
+            local labelW = love.graphics.getFont():getWidth(label)
+            local itemW = (quad and (iconSize + 2) or love.graphics.getFont():getWidth(entry.name:gsub("_", " ") .. " ")) + labelW + 8
+
+            -- Wrap to next row if exceeding panel width
+            if curX + itemW > invX + maxW then
+                curX = invX + 30
+                curY = curY + iconSize + 4
+            end
+
+            table.insert(layout, {
+                entry = entry,
+                quad = quad,
+                label = label,
+                x = curX,
+                y = curY,
+                w = itemW
+            })
+            curX = curX + itemW
+            if curY + iconSize > maxY then
+                maxY = curY + iconSize
+            end
+        end
+    end
+
+    -- Determine bottom y and total HUD height
+    local hasAxe = (player.inventory.wood_axe or 0) > 0
+    local toolY = maxY + 6
+    local finalY = hasAxe and (toolY + 16) or (maxY + 10)
+    local hudHeight = finalY - 10  -- because panel starts at y=10
+
+    -- 2. Draw HUD panel background with dynamic height
     love.graphics.setColor(0, 0, 0, 0.5)
-    love.graphics.rectangle("fill", 10, 10, 280, 155, 6, 6)
+    love.graphics.rectangle("fill", 10, 10, 280, hudHeight, 6, 6)
     
-    -- Header
+    -- 3. Draw Header & Status Bars (HP, Food, Stamina)
     love.graphics.setColor(0.9, 0.8, 0.4)
     love.graphics.print("Xain-Sama's HUD - " .. UI.difficultyLabel, 20, 20)
     
@@ -82,31 +143,34 @@ function UI.drawHUD(player)
     love.graphics.setColor(1, 1, 1)
     love.graphics.print("Stam: " .. math.floor(player.stamina) .. "/" .. player.maxStamina, 25, 89)
 
-    -- Inventory readout
-    love.graphics.setColor(0.8, 0.8, 0.8)
-    local invLines = {}
-    local priorityOrder = { "wood", "stone", "flint", "berries", "cooked_berries", "wood_axe",
-                             "campfire_blueprint", "chest_blueprint", "wall_blueprint" }
-    local shown = {}
-    for _, item in ipairs(priorityOrder) do
-        local count = player.inventory[item] or 0
-        if count > 0 then
-            table.insert(invLines, item:gsub("_", " ") .. " x" .. count)
-            shown[item] = true
+    -- 4. Draw Inventory Content
+    if #invItems == 0 then
+        love.graphics.setColor(0.6, 0.6, 0.6)
+        love.graphics.print("Inv: (Empty)", invX, invY)
+    else
+        love.graphics.setColor(0.8, 0.8, 0.8)
+        love.graphics.print("Inv:", invX, invY)
+        for _, itemInfo in ipairs(layout) do
+            if itemInfo.quad then
+                -- Draw scaled 12x12 sprite icon from the 32x32 quad
+                love.graphics.setColor(1, 1, 1)
+                local scaleX = iconSize / 32
+                local scaleY = iconSize / 32
+                love.graphics.draw(_Assets.items, itemInfo.quad, itemInfo.x, itemInfo.y, 0, scaleX, scaleY)
+                love.graphics.setColor(0.8, 0.8, 0.8)
+                love.graphics.print(itemInfo.label, itemInfo.x + iconSize + 2, itemInfo.y)
+            else
+                -- Text fallback when no sprite is available
+                love.graphics.setColor(0.8, 0.8, 0.8)
+                love.graphics.print(itemInfo.entry.name:gsub("_", " ") .. " " .. itemInfo.label, itemInfo.x, itemInfo.y)
+            end
         end
     end
-    for item, count in pairs(player.inventory) do
-        if count > 0 and not shown[item] then
-            table.insert(invLines, item:gsub("_", " ") .. " x" .. count)
-        end
-    end
-    if #invLines == 0 then table.insert(invLines, "(Empty)") end
-    love.graphics.print("Inv: " .. table.concat(invLines, " | "), 20, 115)
 
-    -- Tool indicator
-    if (player.inventory.wood_axe or 0) > 0 then
+    -- 5. Draw Tool indicator (if axe is equipped)
+    if hasAxe then
         love.graphics.setColor(0.8, 0.6, 0.2)
-        love.graphics.print("[Axe equipped - faster tree harvest]", 20, 135)
+        love.graphics.print("[Axe equipped - faster tree harvest]", 20, toolY)
     end
 end
 

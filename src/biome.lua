@@ -49,61 +49,81 @@ function Biome.getZoneRect(col, row)
            Biome.ZONE_H
 end
 
--- Draw all biome ground tiles (call before world objects)
-function Biome.draw()
+local canvas = nil
+
+-- Pre-render the entire 2880x2160 world background onto a Canvas for high performance
+function Biome.load()
+    local ok, cv = pcall(love.graphics.newCanvas, 2880, 2160)
+    if not ok then
+        print("Warning: Could not create Biome canvas. Fallback to dynamic primitives will be used.")
+        return
+    end
+
+    canvas = cv
+    love.graphics.setCanvas(canvas)
+    love.graphics.clear()
+
+    local Assets = require("src.assets")
+    local tileW, tileH = 32, 32
+
+    -- For consistent generative decorations
+    math.randomseed(42)
+
     for row = 1, 3 do
         for col = 1, 3 do
             local biomeType = GRID[row][col]
-            local gc = GROUND_COLOR[biomeType]
-            local bc = BORDER_COLOR[biomeType]
             local zx, zy, zw, zh = Biome.getZoneRect(col, row)
 
-            -- Ground fill
-            love.graphics.setColor(gc[1], gc[2], gc[3])
-            love.graphics.rectangle("fill", zx, zy, zw, zh)
+            -- 1. Ground Fill (tiled texture or solid color)
+            if Assets.tileset and Assets.quads.tiles and Assets.quads.tiles[biomeType] then
+                love.graphics.setColor(1, 1, 1, 1)
+                local quad = Assets.quads.tiles[biomeType]
+                for y = zy, zy + zh - tileH, tileH do
+                    for x = zx, zx + zw - tileW, tileW do
+                        love.graphics.draw(Assets.tileset, quad, x, y)
+                    end
+                end
+            else
+                local gc = GROUND_COLOR[biomeType]
+                love.graphics.setColor(gc[1], gc[2], gc[3])
+                love.graphics.rectangle("fill", zx, zy, zw, zh)
+            end
 
-            -- Subtle inner border to show zone edges
+            -- 2. Subtle zone borders
+            local bc = BORDER_COLOR[biomeType]
             love.graphics.setColor(bc[1], bc[2], bc[3], 0.5)
             love.graphics.rectangle("line", zx + 2, zy + 2, zw - 4, zh - 4)
 
-            -- Biome label (faint, large)
+            -- 3. Large faint label
             love.graphics.setColor(0, 0, 0, 0.08)
             love.graphics.printf(string.upper(biomeType), zx, zy + zh / 2 - 20, zw, "center")
         end
     end
 
-    -- Draw decorative features per biome
-    -- Cave: stalactite-like rock spikes along top and bottom
+    -- 4. Biome decorations
     for row = 1, 3 do
         for col = 1, 3 do
             local biomeType = GRID[row][col]
             local zx, zy, zw, zh = Biome.getZoneRect(col, row)
 
             if biomeType == "cave" then
+                -- Cave stalactite/stalagmite spikes
                 love.graphics.setColor(0.20, 0.18, 0.16, 0.6)
                 for i = 0, 7 do
                     local sx = zx + 60 + i * (zw - 120) / 7
                     local h  = math.random(20, 55)
-                    -- Stalactites from top
-                    love.graphics.polygon("fill",
-                        sx - 8, zy,
-                        sx + 8, zy,
-                        sx,     zy + h)
-                    -- Stalagmites from bottom
-                    love.graphics.polygon("fill",
-                        sx - 8, zy + zh,
-                        sx + 8, zy + zh,
-                        sx,     zy + zh - h)
+                    love.graphics.polygon("fill", sx - 8, zy, sx + 8, zy, sx, zy + h)
+                    love.graphics.polygon("fill", sx - 8, zy + zh, sx + 8, zy + zh, sx, zy + zh - h)
                 end
             elseif biomeType == "desert" then
-                -- Desert: dune ripple lines
+                -- Desert dune ripple lines
                 love.graphics.setColor(0.55, 0.44, 0.24, 0.35)
                 for i = 1, 5 do
                     local dy = zy + i * (zh / 6)
                     love.graphics.line(zx + 30, dy, zx + zw - 30, dy + 20)
                 end
             elseif biomeType == "forest" then
-                -- Forest: scattered leaf clusters (non-interactive decorations)
+                -- Forest scattered leaf cluster circles
                 love.graphics.setColor(0.15, 0.32, 0.13, 0.3)
                 for i = 1, 6 do
                     local lx = zx + math.random(40, zw - 40)
@@ -114,6 +134,34 @@ function Biome.draw()
         end
     end
 
+    love.graphics.setCanvas()
+    love.graphics.setColor(1, 1, 1, 1)
+end
+
+-- Draw pre-rendered biome ground canvas (or fallback to primitives)
+function Biome.draw()
+    if canvas then
+        love.graphics.setColor(1, 1, 1, 1)
+        love.graphics.draw(canvas, 0, 0)
+    else
+        for row = 1, 3 do
+            for col = 1, 3 do
+                local biomeType = GRID[row][col]
+                local gc = GROUND_COLOR[biomeType]
+                local bc = BORDER_COLOR[biomeType]
+                local zx, zy, zw, zh = Biome.getZoneRect(col, row)
+
+                love.graphics.setColor(gc[1], gc[2], gc[3])
+                love.graphics.rectangle("fill", zx, zy, zw, zh)
+
+                love.graphics.setColor(bc[1], bc[2], bc[3], 0.5)
+                love.graphics.rectangle("line", zx + 2, zy + 2, zw - 4, zh - 4)
+
+                love.graphics.setColor(0, 0, 0, 0.08)
+                love.graphics.printf(string.upper(biomeType), zx, zy + zh / 2 - 20, zw, "center")
+            end
+        end
+    end
     love.graphics.setColor(1, 1, 1, 1)
 end
 
