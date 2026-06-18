@@ -187,9 +187,11 @@ function Goblin.update(dt, player, resources, resourceTypes)
             end
         end
 
-        -- Clamp goblins inside screen boundary
-        gob.x = math.max(10, math.min(gob.x, love.graphics.getWidth() - 10))
-        gob.y = math.max(10, math.min(gob.y, love.graphics.getHeight() - 10))
+        -- Clamp goblins inside full world boundary
+        local WORLD_W = _Camera and _Camera.WORLD_W or 2880
+        local WORLD_H = _Camera and _Camera.WORLD_H or 2160
+        gob.x = math.max(10, math.min(gob.x, WORLD_W - 10))
+        gob.y = math.max(10, math.min(gob.y, WORLD_H - 10))
     end
 end
 
