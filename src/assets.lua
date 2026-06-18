@@ -5,12 +5,26 @@ Assets.sheet = nil
 Assets.quads = {}
 
 function Assets.load()
-    -- Load character spritesheet
-    local ok, img = pcall(love.graphics.newImage, "assets/sprites/characters.jpg")
+    -- Load character spritesheet as ImageData to filter out magenta background
+    local ok, imgData = pcall(love.image.newImageData, "assets/sprites/characters.jpg")
     if not ok then
-        print("Warning: Could not load characters.jpg, drawing will fallback to basic primitives.")
+        print("Warning: Could not load characters.jpg as ImageData, drawing will fallback to basic primitives.")
         return
     end
+
+    -- Chroma key: turn magenta background into transparent pixels
+    imgData:mapPixel(function(x, y, r, g, b, a)
+        -- Pure magenta is (1, 0, 1). We use a tolerance threshold to handle JPEG compression artifacts.
+        if r > 0.8 and g < 0.2 and b > 0.8 then
+            return 0, 0, 0, 0
+        else
+            return r, g, b, a
+        end
+    end)
+
+    local img = love.graphics.newImage(imgData)
+    -- Apply nearest-neighbor filtering for crisp, sharp retro pixel art scaling
+    img:setFilter("nearest", "nearest")
 
     Assets.sheet = img
     local imgW, imgH = img:getDimensions()
