@@ -21,6 +21,7 @@ _Building = Building
 _World    = World
 _Camera   = Camera
 _Assets   = Assets
+_Goblin   = Goblin
 
 
 local VERSION             = "v1.0"
@@ -72,6 +73,8 @@ function love.load()
     Enemy.spawn("skeleton", 1900, 1500)
     Enemy.spawn("bat",       500,  900)
     Enemy.spawn("orc",      2400,  750)
+    Enemy.spawn("vampire",  1150,  350)
+    Enemy.spawn("golem",    2400, 1100)
 
     Camera.x = math.max(0, math.min(Player.x - love.graphics.getWidth()  / 2, Camera.WORLD_W - love.graphics.getWidth()))
     Camera.y = math.max(0, math.min(Player.y - love.graphics.getHeight() / 2, Camera.WORLD_H - love.graphics.getHeight()))

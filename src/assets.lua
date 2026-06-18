@@ -58,6 +58,30 @@ function Assets.load()
         love.graphics.newQuad(cellW * 6, cellH * 2, cellW, cellH, imgW, imgH),
         love.graphics.newQuad(cellW * 7, cellH * 2, cellW, cellH, imgW, imgH)
     }
+
+    -- Slice new enemies & NPCs (row 4)
+    Assets.quads.vampire = {
+        love.graphics.newQuad(0, cellH * 3, cellW, cellH, imgW, imgH),
+        love.graphics.newQuad(cellW, cellH * 3, cellW, cellH, imgW, imgH)
+    }
+    Assets.quads.golem = {
+        love.graphics.newQuad(cellW * 2, cellH * 3, cellW, cellH, imgW, imgH),
+        love.graphics.newQuad(cellW * 3, cellH * 3, cellW, cellH, imgW, imgH)
+    }
+    Assets.quads.npc_mira = {
+        love.graphics.newQuad(cellW * 4, cellH * 3, cellW, cellH, imgW, imgH),
+        love.graphics.newQuad(cellW * 5, cellH * 3, cellW, cellH, imgW, imgH)
+    }
+    Assets.quads.npc_healer = {
+        love.graphics.newQuad(cellW * 6, cellH * 3, cellW, cellH, imgW, imgH),
+        love.graphics.newQuad(cellW * 7, cellH * 3, cellW, cellH, imgW, imgH)
+    }
+
+    -- Slice Blacksmith NPC (row 5)
+    Assets.quads.npc_blacksmith = {
+        love.graphics.newQuad(0, cellH * 4, cellW, cellH, imgW, imgH),
+        love.graphics.newQuad(cellW, cellH * 4, cellW, cellH, imgW, imgH)
+    }
 end
 
 -- Helper to get a Quad for drawing

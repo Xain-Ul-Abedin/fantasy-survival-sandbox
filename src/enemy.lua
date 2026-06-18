@@ -55,6 +55,30 @@ local ARCHETYPES = {
         color    = { 0.4, 0.1, 0.55 },
         label    = "Night Lich",
         loot     = { { item = "bone", min = 5, max = 8 }, { item = "fang", min = 3, max = 5 } }
+    },
+    vampire = {
+        hp       = 85,
+        speed    = 140,
+        damage   = 12,
+        size     = 16,
+        aggroRange = 280,
+        attackRange = 25,
+        attackCooldown = 1.0,
+        color    = { 0.8, 0.1, 0.1 },
+        label    = "Vampire",
+        loot     = { { item = "fang", min = 1, max = 3 } }
+    },
+    golem = {
+        hp       = 150,
+        speed    = 40,
+        damage   = 22,
+        size     = 26,
+        aggroRange = 160,
+        attackRange = 36,
+        attackCooldown = 2.2,
+        color    = { 0.4, 0.4, 0.45 },
+        label    = "Stone Golem",
+        loot     = { { item = "stone", min = 4, max = 8 }, { item = "flint", min = 1, max = 3 } }
     }
 }
 
@@ -96,8 +120,8 @@ function Enemy.spawnWave(count, W, H)
     -- Biome → preferred enemy types
     local BIOME_ENEMIES = {
         forest = { "skeleton", "bat" },
-        cave   = { "skeleton", "skeleton", "bat" },
-        desert = { "orc", "orc", "skeleton" },
+        cave   = { "skeleton", "skeleton", "bat", "vampire" },
+        desert = { "orc", "orc", "skeleton", "golem" },
     }
     local BIOME_GRID = {
         { "forest", "cave",   "forest" },
@@ -228,6 +252,41 @@ function Enemy.update(dt, player, world, damageFeed)
                                 timer = 1.2,
                                 color = { 0.95, 0.2, 0.2 }
                             })
+
+                            -- Vampire life-steal
+                            if e.type == "vampire" then
+                                e.hp = math.min(e.maxHp, e.hp + 6)
+                                table.insert(damageFeed, {
+                                    x = e.x,
+                                    y = e.y - e.size - 4,
+                                    text = "+6 HP",
+                                    timer = 1.0,
+                                    color = { 0.2, 0.95, 0.2 }
+                                })
+                            end
+
+                            -- Golem ground slam knockback
+                            if e.type == "golem" then
+                                local kx = (dist > 0) and (dx / dist) or 0
+                                local ky = (dist > 0) and (dy / dist) or 0
+                                player.x = player.x + kx * 52
+                                player.y = player.y + ky * 52
+
+                                -- Also knockback nearby goblins
+                                if _Goblin and _Goblin.list then
+                                    for _, gob in ipairs(_Goblin.list) do
+                                        local gdx = gob.x - e.x
+                                        local gdy = gob.y - e.y
+                                        local gdist = math.sqrt(gdx*gdx + gdy*gdy)
+                                        if gdist <= 85 then
+                                            local gkx = (gdist > 0) and (gdx / gdist) or 0
+                                            local gky = (gdist > 0) and (gdy / gdist) or 0
+                                            gob.x = gob.x + gkx * 45
+                                            gob.y = gob.y + gky * 45
+                                        end
+                                    end
+                                end
+                            end
                         end
                     end
                 end

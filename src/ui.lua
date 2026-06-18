@@ -330,7 +330,7 @@ function UI.drawDialogue(npc, line)
 
     -- Hint
     love.graphics.setColor(0.55, 0.55, 0.60)
-    love.graphics.print("[T] Next  [G] Trade (5 Wood → 2 Cooked Berries)  [ESC] Close", bx + 12, by + bh - 18)
+    love.graphics.print("[T] Next  [G] " .. (npc.tradeHint or "Trade") .. "  [ESC] Close", bx + 12, by + bh - 18)
 end
 
 -- Draw Lich warning banner when boss is alive
