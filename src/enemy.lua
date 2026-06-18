@@ -5,6 +5,7 @@ local Enemy = {}
 Enemy.list        = {}
 Enemy.idCounter   = 0
 Enemy.projectiles = {}  -- Lich homing orbs
+Enemy.lichDefeated = false  -- Victory flag
 
 local ARCHETYPES = {
     skeleton = {
@@ -156,6 +157,10 @@ function Enemy.update(dt, player, world, damageFeed)
     for i, e in ipairs(Enemy.list) do
         if e.state == "dead" then
             e.deathTimer = e.deathTimer + dt
+            -- Victory: flag when Lich fully expires
+            if e.type == "lich" and not Enemy.lichDefeated then
+                Enemy.lichDefeated = true
+            end
             if e.deathTimer >= 0.6 then
                 table.insert(toRemove, i)
             end

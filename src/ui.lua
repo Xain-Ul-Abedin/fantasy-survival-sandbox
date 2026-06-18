@@ -344,4 +344,63 @@ function UI.drawLichWarning(isLichAlive, dayCycle)
     love.graphics.printf("⚠  THE NIGHT LICH WALKS  ⚠", 0, 54, W, "center")
 end
 
+-- Draw the full-screen Victory screen
+function UI.drawVictory(player, dayCycle)
+    local W, H = love.graphics.getWidth(), love.graphics.getHeight()
+
+    -- Deep dark background with slow golden shimmer
+    local t = love.timer.getTime()
+    love.graphics.setColor(0.04, 0.03, 0.08)
+    love.graphics.rectangle("fill", 0, 0, W, H)
+
+    -- Radiating golden rings
+    for i = 1, 8 do
+        local r     = (i / 8)
+        local alpha = math.abs(math.sin(t * 0.8 + i)) * 0.18
+        love.graphics.setColor(0.95, 0.80, 0.25, alpha)
+        love.graphics.circle("line", W / 2, H / 2, r * W * 0.7)
+    end
+
+    -- Title glow backdrop
+    local gPulse = 0.7 + math.abs(math.sin(t * 1.2)) * 0.3
+    love.graphics.setColor(0.90, 0.70, 0.10, 0.18 * gPulse)
+    love.graphics.rectangle("fill", W / 2 - 310, H / 2 - 115, 620, 80, 12, 12)
+
+    -- Main title
+    love.graphics.setColor(1.00, 0.88, 0.30, gPulse)
+    love.graphics.printf("~ ISLAND SAVED ~", 0, H / 2 - 105, W, "center")
+
+    -- Subtitle
+    love.graphics.setColor(0.85, 0.95, 0.75, 0.9)
+    love.graphics.printf("The Night Lich has been vanquished.", 0, H / 2 - 68, W, "center")
+    love.graphics.printf("FanIsle breathes free once more.", 0, H / 2 - 48, W, "center")
+
+    -- Divider
+    love.graphics.setColor(0.75, 0.65, 0.25, 0.5)
+    love.graphics.line(W / 2 - 200, H / 2 - 22, W / 2 + 200, H / 2 - 22)
+
+    -- Stats panel
+    local day  = dayCycle and dayCycle.day or 1
+    local hp   = player and math.floor(player.health) or 0
+    local maxhp = player and player.maxHealth or 100
+    love.graphics.setColor(0.80, 0.80, 0.70, 0.85)
+    love.graphics.printf("Survived to Day " .. day, 0, H / 2,      W, "center")
+    love.graphics.printf("Health remaining: " .. hp .. " / " .. maxhp, 0, H / 2 + 24, W, "center")
+
+    -- Divider
+    love.graphics.setColor(0.75, 0.65, 0.25, 0.5)
+    love.graphics.line(W / 2 - 200, H / 2 + 58, W / 2 + 200, H / 2 + 58)
+
+    -- Restart prompt with blink
+    local blink = math.floor(t * 2) % 2 == 0
+    if blink then
+        love.graphics.setColor(0.70, 0.90, 0.60, 0.9)
+        love.graphics.printf("[ R ]  Play Again", 0, H / 2 + 74, W, "center")
+    end
+
+    -- Footer credit
+    love.graphics.setColor(0.40, 0.40, 0.45, 0.6)
+    love.graphics.printf("FanIsle  —  built with Love2D  —  by Xain", 0, H - 28, W, "center")
+end
+
 return UI
