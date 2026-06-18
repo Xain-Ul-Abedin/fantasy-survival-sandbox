@@ -14,6 +14,7 @@ local Biome    = require("src.biome")
 local Sound    = require("src.sound")
 local NPC      = require("src.npc")
 local Assets   = require("src.assets")
+local Music    = require("src.music")
 
 -- Expose globals for cross-module access
 _Building = Building
@@ -58,6 +59,7 @@ function love.load()
     love.window.setTitle("FanIsle " .. VERSION)
     Sound.load()
     Assets.load()
+    Music.load()
     World.spawnResources()
     Goblin.spawnGoblins()
     NPC.spawn()
@@ -236,6 +238,8 @@ function love.keypressed(key)
 end
 
 function love.update(dt)
+    Music.update(dt, gameState)
+
     if gameState ~= "play" then return end
 
     local W, H = love.graphics.getDimensions()
