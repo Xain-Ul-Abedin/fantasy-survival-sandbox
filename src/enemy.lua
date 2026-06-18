@@ -327,36 +327,49 @@ function Enemy.strikeInRange(hitX, hitY, radius, damage, damageFeed)
     end
 end
 
--- Draw all enemies
 function Enemy.draw()
     for _, e in ipairs(Enemy.list) do
         local alpha = e.state == "dead" and math.max(0, 1 - e.deathTimer / 0.6) or 1
+        local drawn = false
 
-        -- Body
-        love.graphics.setColor(e.color[1], e.color[2], e.color[3], alpha)
-        if e.type == "bat" then
-            -- Bat: diamond shape
-            love.graphics.polygon("fill",
-                e.x,          e.y - e.size,
-                e.x + e.size, e.y,
-                e.x,          e.y + e.size,
-                e.x - e.size, e.y)
-        elseif e.type == "orc" then
-            love.graphics.rectangle("fill", e.x - e.size, e.y - e.size, e.size * 2, e.size * 2, 3, 3)
-        else
-            love.graphics.circle("fill", e.x, e.y, e.size)
+        if _Assets and _Assets.sheet then
+            local animTimer = love.timer.getTime()
+            local quad = _Assets.getQuad(e.type, nil, true, animTimer)
+            if quad then
+                love.graphics.setColor(1, 1, 1, alpha)
+                local _, _, qw, qh = quad:getViewport()
+                love.graphics.draw(_Assets.sheet, quad, e.x - e.size, e.y - e.size, 0, (e.size * 2) / qw, (e.size * 2) / qh)
+                drawn = true
+            end
+        end
+
+        if not drawn then
+            -- Fallback Body
+            love.graphics.setColor(e.color[1], e.color[2], e.color[3], alpha)
+            if e.type == "bat" then
+                -- Bat: diamond shape
+                love.graphics.polygon("fill",
+                    e.x,          e.y - e.size,
+                    e.x + e.size, e.y,
+                    e.x,          e.y + e.size,
+                    e.x - e.size, e.y)
+            elseif e.type == "orc" then
+                love.graphics.rectangle("fill", e.x - e.size, e.y - e.size, e.size * 2, e.size * 2, 3, 3)
+            else
+                love.graphics.circle("fill", e.x, e.y, e.size)
+            end
         end
 
         if e.state ~= "dead" then
             -- HP bar above enemy
             local barW = e.size * 2 + 4
             local hpRatio = math.max(0, e.hp / e.maxHp)
-            love.graphics.setColor(0.1, 0.1, 0.1, 0.8)
+            love.graphics.setColor(0.1, 0.1, 0.1, 0.8 * alpha)
             love.graphics.rectangle("fill", e.x - barW / 2, e.y - e.size - 10, barW, 5)
-            love.graphics.setColor(0.8, 0.15, 0.15, 0.9)
+            love.graphics.setColor(0.8, 0.15, 0.15, 0.9 * alpha)
             love.graphics.rectangle("fill", e.x - barW / 2, e.y - e.size - 10, barW * hpRatio, 5)
             -- Label
-            love.graphics.setColor(1, 1, 1, 0.75)
+            love.graphics.setColor(1, 1, 1, 0.75 * alpha)
             love.graphics.print(e.label, e.x - 22, e.y + e.size + 2)
         end
     end

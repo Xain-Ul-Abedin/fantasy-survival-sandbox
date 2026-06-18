@@ -14,7 +14,10 @@ Player.maxStamina = 100
 Player.direction = "down"
 Player.iframeTimer    = 0        -- Seconds of invincibility remaining after a hit
 Player.IFRAME_DURATION = 0.55   -- 0.55s of invincibility per enemy hit
+Player.animTimer = 0
+Player.isMoving = false
 Player.inventory = {
+
     wood = 0,
     stone = 0,
     flint = 0,
@@ -31,6 +34,8 @@ function Player.reset()
     Player.stamina = 100
     Player.direction = "down"
     Player.iframeTimer = 0
+    Player.animTimer = 0
+    Player.isMoving = false
     Player.inventory = {
         wood = 0,
         stone = 0,
@@ -128,11 +133,30 @@ function Player.update(dt, difficulty)
     local WORLD_H = _Camera and _Camera.WORLD_H or 2160
     Player.x = math.max(0, math.min(Player.x, WORLD_W - Player.size))
     Player.y = math.max(0, math.min(Player.y, WORLD_H - Player.size))
+
+    -- Update walking animation state
+    if dx ~= 0 or dy ~= 0 then
+        Player.isMoving = true
+        Player.animTimer = Player.animTimer + dt
+    else
+        Player.isMoving = false
+        Player.animTimer = 0
+    end
 end
 
 -- Draw the player box and directional pointer
 function Player.draw()
-    -- Character Box
+    if _Assets and _Assets.sheet then
+        local quad = _Assets.getQuad("player", Player.direction, Player.isMoving, Player.animTimer)
+        if quad then
+            love.graphics.setColor(1, 1, 1, 1)
+            local _, _, qw, qh = quad:getViewport()
+            love.graphics.draw(_Assets.sheet, quad, Player.x, Player.y, 0, Player.size / qw, Player.size / qh)
+            return
+        end
+    end
+
+    -- Fallback Character Box
     love.graphics.setColor(0.8, 0.6, 0.4)
     love.graphics.rectangle("fill", Player.x, Player.y, Player.size, Player.size)
 

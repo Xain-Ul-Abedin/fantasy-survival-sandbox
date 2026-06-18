@@ -13,11 +13,14 @@ local Camera   = require("src.camera")
 local Biome    = require("src.biome")
 local Sound    = require("src.sound")
 local NPC      = require("src.npc")
+local Assets   = require("src.assets")
 
 -- Expose globals for cross-module access
 _Building = Building
 _World    = World
 _Camera   = Camera
+_Assets   = Assets
+
 
 local VERSION             = "v1.0"
 local gameState           = "menu"
@@ -54,6 +57,7 @@ end
 function love.load()
     love.window.setTitle("FanIsle " .. VERSION)
     Sound.load()
+    Assets.load()
     World.spawnResources()
     Goblin.spawnGoblins()
     NPC.spawn()

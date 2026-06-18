@@ -24,7 +24,10 @@ function Goblin.spawnGoblins()
             lastActionType = nil,
             lastActionTargetType = nil,
             lastBlueprintType = nil,
-            targetResource = nil
+            targetResource = nil,
+            direction = "down",
+            isMoving = false,
+            animTimer = 0
         })
     end
 end
@@ -35,6 +38,7 @@ function Goblin.update(dt, player, resources, resourceTypes)
     local playerCenterY = player.y + player.size / 2
 
     for _, gob in ipairs(Goblin.list) do
+        local prevX, prevY = gob.x, gob.y
         if not gob.tamed then
             -- 1. Wild state: wanders around randomly
             gob.wanderTimer = gob.wanderTimer - dt
@@ -192,6 +196,24 @@ function Goblin.update(dt, player, resources, resourceTypes)
         local WORLD_H = _Camera and _Camera.WORLD_H or 2160
         gob.x = math.max(10, math.min(gob.x, WORLD_W - 10))
         gob.y = math.max(10, math.min(gob.y, WORLD_H - 10))
+
+        -- Compute delta movement to update walk cycle and direction
+        local movedX = gob.x - prevX
+        local movedY = gob.y - prevY
+        local distMoved = math.sqrt(movedX * movedX + movedY * movedY)
+
+        if distMoved > 0.05 then
+            gob.isMoving = true
+            gob.animTimer = gob.animTimer + dt
+            if math.abs(movedX) > math.abs(movedY) then
+                if movedX > 0 then gob.direction = "right" else gob.direction = "left" end
+            else
+                if movedY > 0 then gob.direction = "down" else gob.direction = "up" end
+            end
+        else
+            gob.isMoving = false
+            gob.animTimer = 0
+        end
     end
 end
 
@@ -235,13 +257,27 @@ end
 -- Render all Goblins
 function Goblin.draw()
     for _, gob in ipairs(Goblin.list) do
+        local drawn = false
+        if _Assets and _Assets.sheet then
+            local quad = _Assets.getQuad("goblin", gob.direction, gob.isMoving, gob.animTimer)
+            if quad then
+                love.graphics.setColor(1, 1, 1, 1)
+                local _, _, qw, qh = quad:getViewport()
+                love.graphics.draw(_Assets.sheet, quad, gob.x - gob.size, gob.y - gob.size, 0, (gob.size * 2) / qw, (gob.size * 2) / qh)
+                drawn = true
+            end
+        end
+
         if gob.tamed then
-            -- Tamed color: bright orange outline
+            -- Tamed outline (only if drawn with shapes, or draw ring around sprite)
             love.graphics.setColor(0.9, 0.5, 0.1)
             love.graphics.circle("line", gob.x, gob.y, gob.size + 4)
-            -- Main body: green
-            love.graphics.setColor(0.4, 0.7, 0.3)
-            love.graphics.circle("fill", gob.x, gob.y, gob.size)
+
+            if not drawn then
+                -- Main body: green fallback
+                love.graphics.setColor(0.4, 0.7, 0.3)
+                love.graphics.circle("fill", gob.x, gob.y, gob.size)
+            end
             
             -- State label
             love.graphics.setColor(1, 1, 1)
@@ -251,11 +287,13 @@ function Goblin.draw()
                 love.graphics.print("Mimics: " .. gob.lastActionTargetType, gob.x - 30, gob.y - gob.size - 14)
             end
         else
-            -- Wild color: light green
-            love.graphics.setColor(0.2, 0.5, 0.2)
-            love.graphics.circle("fill", gob.x, gob.y, gob.size)
-            love.graphics.setColor(0.5, 0.8, 0.5)
-            love.graphics.circle("fill", gob.x, gob.y, gob.size - 3)
+            if not drawn then
+                -- Wild color fallback
+                love.graphics.setColor(0.2, 0.5, 0.2)
+                love.graphics.circle("fill", gob.x, gob.y, gob.size)
+                love.graphics.setColor(0.5, 0.8, 0.5)
+                love.graphics.circle("fill", gob.x, gob.y, gob.size - 3)
+            end
             
             -- Wild Label
             love.graphics.setColor(0.7, 0.9, 0.7)
